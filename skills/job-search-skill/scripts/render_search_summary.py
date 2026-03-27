@@ -2,20 +2,31 @@
 import json
 from pathlib import Path
 
-SKILL_ROOT = Path(__file__).resolve().parents[1]
-RUNS_DIR = SKILL_ROOT / 'data/search-runs'
-JOBS_DIR = SKILL_ROOT / 'data/jobs'
+SCRIPT_PATH = Path(__file__).resolve()
+PROJECT_ROOT = SCRIPT_PATH.parents[3]
+RUNTIME_CONFIG = PROJECT_ROOT / 'config/runtime.json'
+
+
+def load_runtime_config():
+    if not RUNTIME_CONFIG.exists():
+        raise SystemExit(f'Runtime config not found: {RUNTIME_CONFIG}')
+    return json.loads(RUNTIME_CONFIG.read_text())
 
 
 def main():
-    run_files = sorted(RUNS_DIR.glob('*.json'))
+    runtime = load_runtime_config()
+    output_base = Path(runtime['outputBase'])
+    runs_dir = output_base / 'search-runs'
+    jobs_dir = output_base / 'jobs'
+
+    run_files = sorted(runs_dir.glob('*.json'))
     if not run_files:
         raise SystemExit('No search runs found.')
     latest = run_files[-1]
     run = json.loads(latest.read_text())
     run_id = run['runId']
 
-    jobs_path = JOBS_DIR / f'{run_id}.json'
+    jobs_path = jobs_dir / f'{run_id}.json'
     jobs = json.loads(jobs_path.read_text()) if jobs_path.exists() else []
 
     lines = []
@@ -42,7 +53,7 @@ def main():
     lines.append('## Notes')
     lines.append(f"- {run.get('notes', '')}")
 
-    out = RUNS_DIR / f'{run_id}.md'
+    out = runs_dir / f'{run_id}.md'
     out.write_text('\n'.join(lines) + '\n')
     print(out)
 

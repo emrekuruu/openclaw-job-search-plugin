@@ -1,23 +1,26 @@
 ---
 name: job-search-skill
-description: Run single-pass job discovery as a fully self-contained skill using a bundled profile, bundled config, and a JobSpy-backed local search pipeline. Use when an agent needs to find and collect jobs from the skill’s own profile/config context, save raw live results, normalize job records, and render a summary. Do not use for ranking, applications, resume tailoring, tracking, or interview preparation. Fail clearly if the environment or live backend is unavailable.
+description: Run single-pass job discovery as an agent-facing orchestration skill for the job-search-bot project. Use when an agent needs to invoke the project’s own runtime, Python environment, config, and output directories to collect live jobs from a configured candidate profile. Do not use for ranking, applications, resume tailoring, tracking, or interview preparation. Fail clearly if the project runtime or live backend is unavailable.
 ---
 
 # Job Search Skill
 
-Use this skill to run **Step 1: discovery and collection** as a self-contained installed skill.
+Use this skill to run **Step 1: discovery and collection** for the `job-search-bot` project.
 
-This skill is agent-facing and self-contained. It ships with its own scripts, config, and sample profile data. It should be able to run from its installed location without relying on an external project repo.
+This skill is **project-centric**.
+It does not pretend to be the entire runtime system. Instead, it tells the agent how to invoke the real project runtime cleanly.
 
 ## What this skill does
 
 This skill:
 
-- reads a candidate profile from `data/profiles/`
+- reads the project runtime configuration from `config/runtime.json`
+- uses the project Python runtime defined there
+- reads the configured profile path
 - prepares a search run
 - runs a live JobSpy-backed backend search
 - saves raw backend results
-- normalizes results into the skill’s local schema
+- normalizes results into the project schema
 - renders a human-readable run summary
 
 This skill does **not** yet do:
@@ -29,74 +32,68 @@ This skill does **not** yet do:
 - lifecycle tracking
 - interview preparation
 
-## Runtime requirement
+## Project runtime requirements
 
-This skill expects a dedicated shared Python runtime for OpenClaw skills at:
+The project runtime configuration should exist at:
 
-- `~/.openclaw-skill-venv/bin/python`
+- `config/runtime.json`
 
-That runtime should have at least:
+That config should define at least:
+
+- `projectRoot`
+- `pythonPath`
+- `outputBase`
+- `defaultProfile`
+- `searchDefaultsPath`
+
+The Python runtime defined by `pythonPath` must have the required packages installed, including:
 
 - `python-jobspy`
 - `pandas`
 - `pydantic`
 
-If that interpreter does not exist or `jobspy` is not importable there, the skill should fail clearly.
-Do not silently produce fallback results.
+If the runtime config, Python path, or live backend is unavailable, fail clearly.
+Do not silently produce fallback data.
 
-## Bundled skill structure
+## Default project runtime paths
 
-Expected local structure inside the installed skill:
+Current project defaults:
 
-- `config/search-defaults.json`
-- `data/profiles/`
-- `data/search-runs/`
-- `data/raw/`
-- `data/jobs/`
-- `scripts/`
-
-Default bundled profile:
-
-- `data/profiles/sample-software-engineer-profile.md`
+- runtime config: `config/runtime.json`
+- search defaults: `config/search-defaults.json`
+- runtime data base: `runtime-data/`
+- default profile: `runtime-data/profiles/sample-software-engineer-profile.md`
 
 ## Single-pass workflow
 
-### 1. Confirm runtime
+### 1. Confirm project runtime
 
-Check that this interpreter exists and works:
+Read `config/runtime.json`.
 
-```bash
-~/.openclaw-skill-venv/bin/python -c "import jobspy; print(jobspy.__file__)"
-```
+Check that the configured Python interpreter exists and can import `jobspy`.
 
-If this fails, stop and report the runtime issue clearly.
+### 2. Use the configured profile path
 
-### 2. Choose the profile file
+Use `defaultProfile` unless the task explicitly asks for another profile path.
 
-Use a profile file under `data/profiles/`.
+### 3. Run the project workflow
 
-If the user does not specify a path, default to:
-
-- `data/profiles/sample-software-engineer-profile.md`
-
-### 3. Run the discovery pipeline
-
-Run these scripts in order from the skill root using the dedicated runtime:
+Use the configured Python interpreter to run these scripts from the project root:
 
 ```bash
-~/.openclaw-skill-venv/bin/python scripts/prepare_search_run.py
-~/.openclaw-skill-venv/bin/python scripts/search_backend_jobspy.py
-~/.openclaw-skill-venv/bin/python scripts/normalize_jobs.py
-~/.openclaw-skill-venv/bin/python scripts/render_search_summary.py
+<pythonPath> skills/job-search-skill/scripts/prepare_search_run.py
+<pythonPath> skills/job-search-skill/scripts/search_backend_jobspy.py
+<pythonPath> skills/job-search-skill/scripts/normalize_jobs.py
+<pythonPath> skills/job-search-skill/scripts/render_search_summary.py
 ```
 
 ### 4. Inspect outputs
 
-After the run, inspect the latest files in:
+Inspect the latest files under the configured `outputBase`, especially:
 
-- `data/search-runs/`
-- `data/raw/`
-- `data/jobs/`
+- `search-runs/`
+- `raw/`
+- `jobs/`
 
 The run should produce:
 
@@ -112,11 +109,11 @@ The run should produce:
 - Preserve backend traceability in saved files
 - If the live backend fails, surface the failure clearly
 - Do not fabricate fallback data
-- Use the skill’s normalized schema rather than backend-native field names
+- Present the run summary first when reporting to the user
 
 ## Success condition
 
-A successful run produces live backend output, normalized saved job records, and a readable summary inside the skill-local data directories.
+A successful run produces live backend output, normalized saved job records, and a readable summary inside the project runtime-data area.
 
 ## References
 

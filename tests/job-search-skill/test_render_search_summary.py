@@ -7,6 +7,5 @@ mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 
 
-def test_module_paths_are_defined():
-    assert mod.RUNS_DIR.as_posix().endswith('skills/job-search-skill/data/search-runs')
-    assert mod.JOBS_DIR.as_posix().endswith('skills/job-search-skill/data/jobs')
+def test_project_runtime_config_path_is_used():
+    assert mod.RUNTIME_CONFIG.as_posix().endswith('job-search-bot/config/runtime.json')

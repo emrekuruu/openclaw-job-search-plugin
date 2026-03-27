@@ -4,24 +4,30 @@ from pathlib import Path
 
 from jobspy import scrape_jobs
 
-SKILL_ROOT = Path(__file__).resolve().parents[1]
-RUNS_DIR = SKILL_ROOT / 'data/search-runs'
-RAW_DIR = SKILL_ROOT / 'data/raw'
-CONFIG_PATH = SKILL_ROOT / 'config/search-defaults.json'
+SCRIPT_PATH = Path(__file__).resolve()
+PROJECT_ROOT = SCRIPT_PATH.parents[3]
+RUNTIME_CONFIG = PROJECT_ROOT / 'config/runtime.json'
 
 
-def load_latest_run():
-    run_files = sorted(RUNS_DIR.glob('*.json'))
+def load_runtime_config():
+    if not RUNTIME_CONFIG.exists():
+        raise SystemExit(f'Runtime config not found: {RUNTIME_CONFIG}')
+    return json.loads(RUNTIME_CONFIG.read_text())
+
+
+def load_latest_run(runs_dir: Path):
+    run_files = sorted(runs_dir.glob('*.json'))
     if not run_files:
         raise SystemExit('No search runs found. Run prepare_search_run.py first.')
     latest = run_files[-1]
     return json.loads(latest.read_text())
 
 
-def load_config():
-    if not CONFIG_PATH.exists():
-        raise SystemExit(f'Config not found: {CONFIG_PATH}')
-    return json.loads(CONFIG_PATH.read_text())
+def load_search_config(runtime):
+    config_path = Path(runtime['searchDefaultsPath'])
+    if not config_path.exists():
+        raise SystemExit(f'Search defaults config not found: {config_path}')
+    return json.loads(config_path.read_text())
 
 
 def build_requests(run, config):
@@ -94,22 +100,27 @@ def live_execute(requests):
 
 
 def main():
-    run = load_latest_run()
-    config = load_config()
+    runtime = load_runtime_config()
+    output_base = Path(runtime['outputBase'])
+    runs_dir = output_base / 'search-runs'
+    raw_dir = output_base / 'raw'
+
+    run = load_latest_run(runs_dir)
+    config = load_search_config(runtime)
     run_id = run['runId']
     requests = build_requests(run, config)
     raw_results = live_execute(requests)
 
     raw_payload = {
         'runId': run_id,
-        'backend': 'jobspy-local-adapter',
+        'backend': 'jobspy-project-adapter',
         'mode': 'live',
         'requests': requests,
         'rawResults': raw_results,
     }
 
-    RAW_DIR.mkdir(parents=True, exist_ok=True)
-    out = RAW_DIR / f'{run_id}.json'
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    out = raw_dir / f'{run_id}.json'
     out.write_text(json.dumps(raw_payload, indent=2) + '\n')
     print(out)
 

@@ -28,6 +28,5 @@ def test_normalize_record_maps_backend_fields():
     assert result['runId'] == 'run-123'
 
 
-def test_skill_local_paths_are_used():
-    assert mod.RAW_DIR.as_posix().endswith('skills/job-search-skill/data/raw')
-    assert mod.JOBS_DIR.as_posix().endswith('skills/job-search-skill/data/jobs')
+def test_project_runtime_config_path_is_used():
+    assert mod.RUNTIME_CONFIG.as_posix().endswith('job-search-bot/config/runtime.json')

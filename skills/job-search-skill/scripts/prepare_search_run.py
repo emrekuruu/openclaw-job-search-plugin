@@ -4,9 +4,16 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-SKILL_ROOT = Path(__file__).resolve().parents[1]
-PROFILE = SKILL_ROOT / 'data/profiles/sample-software-engineer-profile.md'
-RUNS_DIR = SKILL_ROOT / 'data/search-runs'
+SCRIPT_PATH = Path(__file__).resolve()
+SKILL_ROOT = SCRIPT_PATH.parents[1]
+PROJECT_ROOT = SCRIPT_PATH.parents[3]
+RUNTIME_CONFIG = PROJECT_ROOT / 'config/runtime.json'
+
+
+def load_runtime_config():
+    if not RUNTIME_CONFIG.exists():
+        raise SystemExit(f'Runtime config not found: {RUNTIME_CONFIG}')
+    return json.loads(RUNTIME_CONFIG.read_text())
 
 
 def slugify(text: str) -> str:
@@ -51,10 +58,14 @@ def extract_section_bullets(lines, section_heading):
 
 
 def main():
-    if not PROFILE.exists():
-        raise SystemExit(f'Profile not found: {PROFILE}')
+    runtime = load_runtime_config()
+    profile = Path(runtime['defaultProfile'])
+    runs_dir = Path(runtime['outputBase']) / 'search-runs'
 
-    content = PROFILE.read_text()
+    if not profile.exists():
+        raise SystemExit(f'Profile not found: {profile}')
+
+    content = profile.read_text()
     lines = content.splitlines()
 
     desired_roles = extract_nested_list(lines, '## Target Direction', 'Desired roles')
@@ -68,19 +79,19 @@ def main():
     run = {
         'runId': run_id,
         'createdAt': now.isoformat(),
-        'backend': 'jobspy-local-adapter',
-        'profilePath': str(PROFILE.relative_to(SKILL_ROOT)),
+        'backend': 'jobspy-project-adapter',
+        'profilePath': str(profile),
         'desiredRoles': desired_roles,
         'targetCompanies': target_companies,
         'locations': preferred_locations,
         'workModes': work_modes,
         'freshnessWindow': '30d',
         'resultCount': 0,
-        'notes': 'Prepared from self-contained skill profile.'
+        'notes': 'Prepared from project-centric runtime profile.'
     }
 
-    RUNS_DIR.mkdir(parents=True, exist_ok=True)
-    out = RUNS_DIR / f'{run_id}.json'
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    out = runs_dir / f'{run_id}.json'
     out.write_text(json.dumps(run, indent=2) + '\n')
     print(out)
 

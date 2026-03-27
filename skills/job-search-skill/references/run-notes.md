@@ -2,33 +2,45 @@
 
 ## Current execution model
 
-The skill operates as a self-contained skill-local pipeline:
+This skill now orchestrates the **project runtime** instead of trying to behave like a fully self-contained mini-application.
 
-1. `scripts/prepare_search_run.py`
-2. `scripts/search_backend_jobspy.py`
-3. `scripts/normalize_jobs.py`
-4. `scripts/render_search_summary.py`
+The project owns:
 
-## Runtime
+- Python runtime
+- config
+- output directories
+- real runtime data
 
-This skill expects a shared OpenClaw skill runtime interpreter at:
+The skill owns:
 
-- `~/.openclaw-skill-venv/bin/python`
+- workflow guidance
+- the invocation pattern
+- the agent-facing instructions
 
-Required packages in that runtime:
+## Project runtime files
 
-- `python-jobspy`
-- `pandas`
-- `pydantic`
+Expected project runtime files:
 
-## Outputs to check
+- `config/runtime.json`
+- `config/search-defaults.json`
+- `runtime-data/profiles/`
+- `runtime-data/search-runs/`
+- `runtime-data/raw/`
+- `runtime-data/jobs/`
 
-After a run, inspect:
+## Script entrypoints
 
-- `data/search-runs/*.json`
-- `data/search-runs/*.md`
-- `data/raw/*.json`
-- `data/jobs/*.json`
+The skill uses these project scripts:
+
+1. `skills/job-search-skill/scripts/prepare_search_run.py`
+2. `skills/job-search-skill/scripts/search_backend_jobspy.py`
+3. `skills/job-search-skill/scripts/normalize_jobs.py`
+4. `skills/job-search-skill/scripts/render_search_summary.py`
+
+## Runtime rule
+
+Use the Python interpreter defined in `config/runtime.json`.
+Do not rely on whichever `python` happens to be on PATH.
 
 ## Current limitations
 

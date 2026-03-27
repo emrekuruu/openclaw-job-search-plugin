@@ -31,7 +31,10 @@ def test_build_requests_creates_expected_shape():
     assert all(r['site_name'] == ['indeed', 'linkedin'] for r in requests)
 
 
-def test_load_config_requires_real_file(monkeypatch):
-    monkeypatch.setattr(mod, 'CONFIG_PATH', Path('/tmp/does-not-exist.json'))
+def test_load_latest_run_requires_files(tmp_path):
     with pytest.raises(SystemExit):
-        mod.load_config()
+        mod.load_latest_run(tmp_path)
+
+
+def test_project_runtime_config_path_is_used():
+    assert mod.RUNTIME_CONFIG.as_posix().endswith('job-search-bot/config/runtime.json')

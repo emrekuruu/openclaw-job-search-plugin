@@ -1,0 +1,7 @@
+{
+  "projectRoot": "/Users/emrekuru/Developer/job-search-bot",
+  "pythonPath": "/Users/emrekuru/Developer/job-search-bot/.venv/bin/python",
+  "outputBase": "/Users/emrekuru/Developer/job-search-bot/runtime-data",
+  "defaultProfile": "/Users/emrekuru/Developer/job-search-bot/runtime-data/profiles/sample-software-engineer-profile.md",
+  "searchDefaultsPath": "/Users/emrekuru/Developer/job-search-bot/config/search-defaults.json"
+}

@@ -28,6 +28,7 @@ def test_extract_nested_list_and_section_bullets():
     assert mod.extract_section_bullets(lines, '## Target Companies') == ['OpenAI', 'Mistral AI']
 
 
-def test_skill_local_paths_are_used():
+def test_project_root_and_runtime_config_paths_are_used():
     assert mod.SKILL_ROOT.name == 'job-search-skill'
-    assert mod.PROFILE.as_posix().endswith('skills/job-search-skill/data/profiles/sample-software-engineer-profile.md')
+    assert mod.PROJECT_ROOT.name == 'job-search-bot'
+    assert mod.RUNTIME_CONFIG.as_posix().endswith('job-search-bot/config/runtime.json')

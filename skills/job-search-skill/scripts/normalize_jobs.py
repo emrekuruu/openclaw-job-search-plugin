@@ -3,10 +3,15 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-SKILL_ROOT = Path(__file__).resolve().parents[1]
-RAW_DIR = SKILL_ROOT / 'data/raw'
-JOBS_DIR = SKILL_ROOT / 'data/jobs'
-RUNS_DIR = SKILL_ROOT / 'data/search-runs'
+SCRIPT_PATH = Path(__file__).resolve()
+PROJECT_ROOT = SCRIPT_PATH.parents[3]
+RUNTIME_CONFIG = PROJECT_ROOT / 'config/runtime.json'
+
+
+def load_runtime_config():
+    if not RUNTIME_CONFIG.exists():
+        raise SystemExit(f'Runtime config not found: {RUNTIME_CONFIG}')
+    return json.loads(RUNTIME_CONFIG.read_text())
 
 
 def normalize_record(raw, run_id):
@@ -35,7 +40,13 @@ def normalize_record(raw, run_id):
 
 
 def main():
-    raw_files = sorted(RAW_DIR.glob('*.json'))
+    runtime = load_runtime_config()
+    output_base = Path(runtime['outputBase'])
+    raw_dir = output_base / 'raw'
+    jobs_dir = output_base / 'jobs'
+    runs_dir = output_base / 'search-runs'
+
+    raw_files = sorted(raw_dir.glob('*.json'))
     if not raw_files:
         raise SystemExit('No raw backend outputs found. Run search_backend_jobspy.py first.')
     latest_raw = raw_files[-1]
@@ -47,11 +58,11 @@ def main():
         for item in entry.get('results', []):
             normalized.append(normalize_record(item, run_id))
 
-    JOBS_DIR.mkdir(parents=True, exist_ok=True)
-    out = JOBS_DIR / f'{run_id}.json'
+    jobs_dir.mkdir(parents=True, exist_ok=True)
+    out = jobs_dir / f'{run_id}.json'
     out.write_text(json.dumps(normalized, indent=2) + '\n')
 
-    run_path = RUNS_DIR / f'{run_id}.json'
+    run_path = runs_dir / f'{run_id}.json'
     if run_path.exists():
         run = json.loads(run_path.read_text())
         run['resultCount'] = len(normalized)
