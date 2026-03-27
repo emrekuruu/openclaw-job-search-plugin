@@ -75,7 +75,6 @@ They resolve the project through:
 ### Easiest way when already inside the repo
 
 ```bash
-cd /Users/emrekuru/Developer/job-search-bot
 export JOB_SEARCH_BOT_ROOT="$PWD"
 ```
 
@@ -102,7 +101,6 @@ Current expected path:
 ### Install/sync dependencies
 
 ```bash
-cd /Users/emrekuru/Developer/job-search-bot
 uv sync
 ```
 
@@ -259,7 +257,7 @@ Publishing uses the `clawhub` CLI, not `openclaw`.
 Example:
 
 ```bash
-clawhub publish /Users/emrekuru/Developer/job-search-bot/skills/job-search-skill --slug job-search-skill --name "Job Search Skill" --version 0.1.0 --tags latest
+clawhub publish **skill** --slug **skill** --name "Name of Skill" --version 0.1.0 --tags latest
 ```
 
 ---
@@ -370,7 +368,6 @@ And runtime search plans are saved under:
 From the project root:
 
 ```bash
-cd /Users/emrekuru/Developer/job-search-bot
 export JOB_SEARCH_BOT_ROOT="$PWD"
 ```
 
