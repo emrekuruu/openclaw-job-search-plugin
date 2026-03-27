@@ -35,7 +35,8 @@ Run this skill from the project root.
 
 Expected project structure:
 
-- `requirements.txt`
+- `pyproject.toml`
+- `uv.lock`
 - `.venv/`
 - `config/search-defaults.json`
 - `data/profiles/`
@@ -55,10 +56,11 @@ Default profile example:
 From project root:
 
 ```bash
+uv sync
 source .venv/bin/activate
 ```
 
-If `.venv` is missing, create it and install direct dependencies from `requirements.txt`.
+If the environment is already synced, activating `.venv` is enough.
 
 ### 2. Choose the profile file
 

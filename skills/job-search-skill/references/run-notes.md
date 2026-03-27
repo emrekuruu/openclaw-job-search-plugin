@@ -9,6 +9,17 @@ The skill currently operates through the skill-local project pipeline:
 3. `skills/job-search-skill/scripts/normalize_jobs.py`
 4. `skills/job-search-skill/scripts/render_search_summary.py`
 
+## Environment
+
+The project is now managed with `uv`.
+
+Typical setup from project root:
+
+```bash
+uv sync
+source .venv/bin/activate
+```
+
 ## Backend
 
 The backend is currently a local JobSpy-backed adapter.
