@@ -1,0 +1,30 @@
+{
+  "runId": "2026-03-27-product-manager",
+  "createdAt": "2026-03-27T16:34:14.534917+01:00",
+  "backend": "job-search-mcp-jobspy",
+  "profilePath": "data/profiles/sample-candidate-profile.md",
+  "desiredRoles": [
+    "Product Manager",
+    "Senior Product Manager",
+    "AI Product Manager"
+  ],
+  "targetCompanies": [
+    "OpenAI",
+    "Mistral AI",
+    "Hugging Face",
+    "Stripe",
+    "Datadog"
+  ],
+  "locations": [
+    "Paris",
+    "Remote (Europe)",
+    "Hybrid in Paris"
+  ],
+  "workModes": [
+    "remote",
+    "hybrid"
+  ],
+  "freshnessWindow": "30d",
+  "resultCount": 125,
+  "notes": "Prepared locally from candidate profile. Backend execution not yet connected."
+}
