@@ -19,9 +19,17 @@ The skill owns:
 - the agent-facing instructions
 - candidate interpretation and search planning
 
+## Project root rule
+
+The skill must resolve the project through:
+
+- `JOB_SEARCH_BOT_ROOT`
+
+If that environment variable is missing or invalid, the skill should fail clearly.
+
 ## Project runtime files
 
-Expected project runtime files:
+Expected project runtime files under the resolved project root:
 
 - `config/runtime.json`
 - `config/search-defaults.json`
@@ -48,7 +56,7 @@ The skill uses these project scripts:
 
 ## Runtime rule
 
-Use the Python interpreter defined in `config/runtime.json`.
+Use the Python interpreter defined in `<JOB_SEARCH_BOT_ROOT>/config/runtime.json`.
 Do not rely on whichever `python` happens to be on PATH.
 
 ## Current limitations

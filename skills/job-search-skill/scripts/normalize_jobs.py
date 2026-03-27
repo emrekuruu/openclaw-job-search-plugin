@@ -1,17 +1,42 @@
 #!/usr/bin/env python3
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 
-SCRIPT_PATH = Path(__file__).resolve()
-PROJECT_ROOT = SCRIPT_PATH.parents[3]
-RUNTIME_CONFIG = PROJECT_ROOT / 'config/runtime.json'
+
+def resolve_project_root() -> Path:
+    env_root = os.environ.get('JOB_SEARCH_BOT_ROOT')
+    if not env_root:
+        raise SystemExit('JOB_SEARCH_BOT_ROOT is not set. This skill requires an explicit project root.')
+    root = Path(env_root).expanduser().resolve()
+    if not root.exists():
+        raise SystemExit(f'Configured JOB_SEARCH_BOT_ROOT does not exist: {root}')
+    return root
 
 
-def load_runtime_config():
-    if not RUNTIME_CONFIG.exists():
-        raise SystemExit(f'Runtime config not found: {RUNTIME_CONFIG}')
-    return json.loads(RUNTIME_CONFIG.read_text())
+def runtime_config_path(project_root: Path) -> Path:
+    return project_root / 'config/runtime.json'
+
+
+def resolve_runtime_value(project_root: Path, value: str) -> Path:
+    p = Path(value)
+    if p.is_absolute():
+        return p
+    return (project_root / p).resolve()
+
+
+def load_runtime_config(project_root: Path):
+    config_path = runtime_config_path(project_root)
+    if not config_path.exists():
+        raise SystemExit(f'Runtime config not found: {config_path}')
+    data = json.loads(config_path.read_text())
+    data['projectRoot'] = str(project_root)
+    data['pythonPath'] = str(resolve_runtime_value(project_root, data['pythonPath']))
+    data['outputBase'] = str(resolve_runtime_value(project_root, data['outputBase']))
+    data['defaultProfile'] = str(resolve_runtime_value(project_root, data['defaultProfile']))
+    data['searchDefaultsPath'] = str(resolve_runtime_value(project_root, data['searchDefaultsPath']))
+    return data
 
 
 def normalize_record(raw, run_id):
@@ -33,14 +58,14 @@ def normalize_record(raw, run_id):
         'discoveredAt': now,
         'salary': raw.get('salary') or raw.get('min_amount'),
         'summary': raw.get('summary') or raw.get('description') or raw.get('job_summary'),
-        'fitNote': raw.get('fitNote') or '',
         'status': 'new',
         'runId': run_id,
     }
 
 
 def main():
-    runtime = load_runtime_config()
+    project_root = resolve_project_root()
+    runtime = load_runtime_config(project_root)
     output_base = Path(runtime['outputBase'])
     raw_dir = output_base / 'raw'
     jobs_dir = output_base / 'jobs'
@@ -54,9 +79,15 @@ def main():
     run_id = payload['runId']
 
     normalized = []
+    seen = set()
     for entry in payload.get('rawResults', []):
         for item in entry.get('results', []):
-            normalized.append(normalize_record(item, run_id))
+            normalized_item = normalize_record(item, run_id)
+            key = (normalized_item['url'] or f"{normalized_item['company']}::{normalized_item['title']}").lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            normalized.append(normalized_item)
 
     jobs_dir.mkdir(parents=True, exist_ok=True)
     out = jobs_dir / f'{run_id}.json'

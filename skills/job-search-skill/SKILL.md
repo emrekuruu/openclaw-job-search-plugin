@@ -43,11 +43,22 @@ The candidate profile is where the agent should infer:
 - work mode constraints
 - what kinds of roles should be avoided
 
+## Project root resolution (mandatory)
+
+This skill requires an explicit project root via:
+
+- `JOB_SEARCH_BOT_ROOT`
+
+The agent must resolve the project using that environment variable before executing the workflow.
+
+If `JOB_SEARCH_BOT_ROOT` is missing or invalid, fail clearly.
+
 ## What this skill does
 
 This skill:
 
-- reads the project runtime configuration from `config/runtime.json`
+- resolves the project root from `JOB_SEARCH_BOT_ROOT`
+- reads the project runtime configuration from `<project-root>/config/runtime.json`
 - reads the configured profile path
 - interprets the candidate profile before searching
 - derives search strategy from candidate seniority, background, and preferences
@@ -67,7 +78,7 @@ This skill does **not** yet do:
 
 The project runtime configuration should exist at:
 
-- `config/runtime.json`
+- `<JOB_SEARCH_BOT_ROOT>/config/runtime.json`
 
 That config should define at least:
 
@@ -100,28 +111,6 @@ Before searching, extract and reason about from the profile:
 - work mode constraints
 - roles or seniority levels to avoid
 
-### Example reasoning expectations
-
-If the profile is for a recently graduated engineer with around 1 year of experience, the search strategy should favor:
-
-- junior
-- graduate
-- entry-level
-- early-career
-- software engineer / backend / full stack roles
-
-And should avoid or strongly suppress:
-
-- senior
-- staff
-- lead
-- principal
-- manager-heavy roles
-
-If the profile includes relevant domain history, such as banking or fintech-adjacent work, use that as a positive search signal.
-
-If target companies are listed, treat them as genuine priority signals and search them explicitly.
-
 ## Search strategy formation (mandatory)
 
 Do not just pass through raw profile text.
@@ -149,13 +138,17 @@ The strategy should include:
 
 ## Execution workflow
 
-### 1. Confirm project runtime
+### 1. Resolve project root
 
-Read `config/runtime.json`.
+Check that `JOB_SEARCH_BOT_ROOT` is set and points to the real `job-search-bot` project.
+
+### 2. Confirm project runtime
+
+Read `<JOB_SEARCH_BOT_ROOT>/config/runtime.json`.
 
 Check that the configured Python interpreter exists and can import `jobspy`.
 
-### 2. Read and interpret the profile
+### 3. Read and interpret the profile
 
 Use `defaultProfile` unless another profile path is explicitly provided.
 
@@ -167,7 +160,7 @@ Before executing any scripts, produce a brief internal interpretation of:
 - preferred companies
 - avoid/down-rank patterns
 
-### 3. Build the search plan
+### 4. Build the search plan
 
 Construct a focused plan such as:
 
@@ -178,7 +171,7 @@ Construct a focused plan such as:
 
 The plan should be based on profile reasoning, not on hardcoded filter rules in config.
 
-### 4. Execute the project workflow
+### 5. Execute the project workflow
 
 Use the configured Python interpreter to run these scripts from the project root:
 
@@ -189,7 +182,7 @@ Use the configured Python interpreter to run these scripts from the project root
 <pythonPath> skills/job-search-skill/scripts/render_search_summary.py
 ```
 
-### 5. Review results lightly
+### 6. Review results lightly
 
 After retrieval, do not blindly accept the results.
 
@@ -221,6 +214,7 @@ A successful run should do more than fetch jobs.
 
 It should:
 
+- resolve the correct project runtime
 - use the project runtime correctly
 - perform live retrieval
 - respect the candidate profile in search strategy

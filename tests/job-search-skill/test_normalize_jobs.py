@@ -1,7 +1,7 @@
 from pathlib import Path
 import importlib.util
 
-SCRIPT = Path('/Users/emrekuru/Developer/job-search-bot/skills/job-search-skill/scripts/normalize_jobs.py')
+SCRIPT = Path(__file__).resolve().parents[2] / 'skills/job-search-skill/scripts/normalize_jobs.py'
 spec = importlib.util.spec_from_file_location('normalize_jobs', SCRIPT)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
@@ -28,5 +28,6 @@ def test_normalize_record_maps_backend_fields():
     assert result['runId'] == 'run-123'
 
 
-def test_project_runtime_config_path_is_used():
-    assert mod.RUNTIME_CONFIG.as_posix().endswith('job-search-bot/config/runtime.json')
+def test_runtime_config_path_builder():
+    root = Path('/tmp/project-root')
+    assert mod.runtime_config_path(root).as_posix() == '/tmp/project-root/config/runtime.json'

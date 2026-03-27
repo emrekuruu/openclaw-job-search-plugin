@@ -1,8 +1,8 @@
 from pathlib import Path
 import importlib.util
 
-SCRIPT = Path(__file__).resolve().parents[2] / 'skills/job-search-skill/scripts/render_search_summary.py'
-spec = importlib.util.spec_from_file_location('render_search_summary', SCRIPT)
+SCRIPT = Path(__file__).resolve().parents[2] / 'scripts/export_jobs_csv.py'
+spec = importlib.util.spec_from_file_location('export_jobs_csv', SCRIPT)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 

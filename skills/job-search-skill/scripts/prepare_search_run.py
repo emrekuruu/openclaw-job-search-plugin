@@ -1,19 +1,46 @@
 #!/usr/bin/env python3
 import json
+import os
 import re
 from datetime import datetime
 from pathlib import Path
 
 SCRIPT_PATH = Path(__file__).resolve()
 SKILL_ROOT = SCRIPT_PATH.parents[1]
-PROJECT_ROOT = SCRIPT_PATH.parents[3]
-RUNTIME_CONFIG = PROJECT_ROOT / 'config/runtime.json'
 
 
-def load_runtime_config():
-    if not RUNTIME_CONFIG.exists():
-        raise SystemExit(f'Runtime config not found: {RUNTIME_CONFIG}')
-    return json.loads(RUNTIME_CONFIG.read_text())
+def resolve_project_root() -> Path:
+    env_root = os.environ.get('JOB_SEARCH_BOT_ROOT')
+    if not env_root:
+        raise SystemExit('JOB_SEARCH_BOT_ROOT is not set. This skill requires an explicit project root.')
+    root = Path(env_root).expanduser().resolve()
+    if not root.exists():
+        raise SystemExit(f'Configured JOB_SEARCH_BOT_ROOT does not exist: {root}')
+    return root
+
+
+def runtime_config_path(project_root: Path) -> Path:
+    return project_root / 'config/runtime.json'
+
+
+def resolve_runtime_value(project_root: Path, value: str) -> Path:
+    p = Path(value)
+    if p.is_absolute():
+        return p
+    return (project_root / p).resolve()
+
+
+def load_runtime_config(project_root: Path):
+    config_path = runtime_config_path(project_root)
+    if not config_path.exists():
+        raise SystemExit(f'Runtime config not found: {config_path}')
+    data = json.loads(config_path.read_text())
+    data['projectRoot'] = str(project_root)
+    data['pythonPath'] = str(resolve_runtime_value(project_root, data['pythonPath']))
+    data['outputBase'] = str(resolve_runtime_value(project_root, data['outputBase']))
+    data['defaultProfile'] = str(resolve_runtime_value(project_root, data['defaultProfile']))
+    data['searchDefaultsPath'] = str(resolve_runtime_value(project_root, data['searchDefaultsPath']))
+    return data
 
 
 def slugify(text: str) -> str:
@@ -58,7 +85,8 @@ def extract_section_bullets(lines, section_heading):
 
 
 def main():
-    runtime = load_runtime_config()
+    project_root = resolve_project_root()
+    runtime = load_runtime_config(project_root)
     profile = Path(runtime['defaultProfile'])
     runs_dir = Path(runtime['outputBase']) / 'search-runs'
 
