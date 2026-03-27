@@ -19,6 +19,7 @@
   - Full Stack Engineer
   - Java Developer
   - Python Developer
+  
 - Preferred industries:
   - banking technology
   - fintech
