@@ -1,0 +1,41 @@
+{
+  "runId": "2026-03-27-software-engineer",
+  "createdAt": "2026-03-27T20:10:38.179411+01:00",
+  "backend": "jobspy-project-adapter",
+  "profilePath": "/Users/emrekuru/Developer/job-search-bot/runtime-data/profiles/sample-software-engineer-profile.md",
+  "desiredRoles": [
+    "Software Engineer",
+    "Junior Software Engineer",
+    "Backend Engineer",
+    "Full Stack Developer",
+    "Full Stack Engineer",
+    "Java Developer",
+    "Python Developer"
+  ],
+  "targetCompanies": [
+    "Yap\u0131 Kredi Teknoloji",
+    "Akbank",
+    "Garanti BBVA Teknoloji",
+    "\u0130\u015f Bankas\u0131",
+    "Trendyol",
+    "Getir",
+    "Sahibinden",
+    "Insider",
+    "Peak",
+    "Atlassian"
+  ],
+  "locations": [
+    "Istanbul",
+    "Hybrid in Istanbul",
+    "Remote (Turkey)"
+  ],
+  "workModes": [
+    "hybrid",
+    "remote",
+    "on premise"
+  ],
+  "freshnessWindow": "30d",
+  "resultCount": 54,
+  "notes": "Prepared from project-centric runtime profile.",
+  "searchPlanPath": "/Users/emrekuru/Developer/job-search-bot/runtime-data/search-plans/2026-03-27-software-engineer.json"
+}

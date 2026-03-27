@@ -8,12 +8,13 @@ mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 
 
-def test_build_requests_creates_expected_shape():
-    run = {
-        'desiredRoles': ['Software Engineer', 'Backend Engineer'],
-        'locations': ['Istanbul', 'Remote'],
-        'workModes': ['remote', 'hybrid'],
-        'targetCompanies': ['Akbank', 'Garanti BBVA Teknoloji', 'Yapı Kredi Teknoloji'],
+def test_build_requests_from_plan_creates_expected_shape():
+    plan = {
+        'queries': [
+            {'kind': 'role-core', 'searchTerm': 'Junior Software Engineer', 'location': 'Istanbul', 'reason': 'junior fit'},
+            {'kind': 'company-targeted', 'searchTerm': 'Software Engineer Akbank', 'location': 'Istanbul', 'reason': 'target company'},
+        ],
+        'qualityRules': {'maxResultsPerQuery': 8}
     }
     config = {
         'siteNames': ['linkedin'],
@@ -24,11 +25,11 @@ def test_build_requests_creates_expected_shape():
         'defaultCountryIndeed': 'turkey',
         'verbose': 1,
     }
-    requests = mod.build_requests(run, config)
+    requests = mod.build_requests_from_plan(plan, config)
     assert requests
     assert all('search_term' in r for r in requests)
-    assert all('location' in r for r in requests)
     assert all(r['site_name'] == ['linkedin'] for r in requests)
+    assert requests[0]['queryKind'] == 'role-core'
 
 
 def test_load_latest_run_requires_files(tmp_path):

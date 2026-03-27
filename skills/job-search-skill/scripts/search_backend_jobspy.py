@@ -48,6 +48,12 @@ def load_latest_run(runs_dir: Path):
     return json.loads(latest.read_text())
 
 
+def load_search_plan(plan_path: Path):
+    if not plan_path.exists():
+        raise SystemExit(f'Search plan not found: {plan_path}')
+    return json.loads(plan_path.read_text())
+
+
 def load_search_config(runtime):
     config_path = Path(runtime['searchDefaultsPath'])
     if not config_path.exists():
@@ -55,40 +61,24 @@ def load_search_config(runtime):
     return json.loads(config_path.read_text())
 
 
-def build_requests(run, config):
+def build_requests_from_plan(plan, config):
     requests = []
-    roles = run.get('desiredRoles', [])[:2]
-    locations = run.get('locations', [])[:2] or ['Remote']
-    work_modes = set(v.lower() for v in run.get('workModes', []))
-    target_companies = run.get('targetCompanies', [])[:3]
-
-    for role in roles:
-        for location in locations:
-            requests.append({
-                'search_term': role,
-                'location': location,
-                'site_name': config['siteNames'],
-                'results_wanted': config['resultsWanted'],
-                'hours_old': config['freshnessHours'],
-                'is_remote': 'remote' in work_modes,
-                'easy_apply': config['easyApply'],
-                'linkedin_fetch_description': config['linkedinFetchDescription'],
-                'country_indeed': config['defaultCountryIndeed'],
-                'verbose': config['verbose'],
-            })
-        for company in target_companies:
-            requests.append({
-                'search_term': f'{role} {company}',
-                'location': locations[0],
-                'site_name': config['siteNames'],
-                'results_wanted': 8,
-                'hours_old': config['freshnessHours'],
-                'is_remote': 'remote' in work_modes,
-                'easy_apply': config['easyApply'],
-                'linkedin_fetch_description': config['linkedinFetchDescription'],
-                'country_indeed': config['defaultCountryIndeed'],
-                'verbose': config['verbose'],
-            })
+    max_results = plan.get('qualityRules', {}).get('maxResultsPerQuery', config['resultsWanted'])
+    for query in plan.get('queries', []):
+        requests.append({
+            'search_term': query['searchTerm'],
+            'location': query['location'],
+            'site_name': config['siteNames'],
+            'results_wanted': max_results,
+            'hours_old': config['freshnessHours'],
+            'is_remote': False,
+            'easy_apply': config['easyApply'],
+            'linkedin_fetch_description': config['linkedinFetchDescription'],
+            'country_indeed': config['defaultCountryIndeed'],
+            'verbose': config['verbose'],
+            'queryKind': query['kind'],
+            'queryReason': query['reason'],
+        })
     return requests
 
 
@@ -102,8 +92,9 @@ def live_execute(requests):
     payload = []
     failures = []
     for request in requests:
+        backend_request = {k: v for k, v in request.items() if k not in {'queryKind', 'queryReason'}}
         try:
-            df = scrape_jobs(**request)
+            df = scrape_jobs(**backend_request)
             payload.append({
                 'request': request,
                 'mode': 'live',
@@ -134,13 +125,15 @@ def main():
     run = load_latest_run(runs_dir)
     config = load_search_config(runtime)
     run_id = run['runId']
-    requests = build_requests(run, config)
+    plan = load_search_plan(Path(run['searchPlanPath']))
+    requests = build_requests_from_plan(plan, config)
     raw_results = live_execute(requests)
 
     raw_payload = {
         'runId': run_id,
         'backend': 'jobspy-project-adapter',
         'mode': 'live',
+        'searchPlanPath': run['searchPlanPath'],
         'requests': requests,
         'rawResults': raw_results,
     }

@@ -54,6 +54,7 @@ def main():
 
     jobs_path = jobs_dir / f'{run_id}.json'
     jobs = json.loads(jobs_path.read_text()) if jobs_path.exists() else []
+    plan = json.loads(Path(run['searchPlanPath']).read_text()) if run.get('searchPlanPath') else None
 
     lines = []
     lines.append(f'# Search Run Summary - {run_id}')
@@ -71,6 +72,17 @@ def main():
     lines.append(f"- Work modes: {', '.join(run.get('workModes', []))}")
     lines.append(f"- Freshness window: {run.get('freshnessWindow')}")
     lines.append('')
+    if plan:
+        lines.append('## Search Plan')
+        lines.append(f"- Candidate seniority: {plan['candidateModel'].get('seniority')}")
+        lines.append(f"- Role family: {', '.join(plan['candidateModel'].get('roleFamily', []))}")
+        lines.append(f"- Tech focus: {', '.join(plan['candidateModel'].get('techFocus', []))}")
+        lines.append(f"- Domain focus: {', '.join(plan['candidateModel'].get('domainFocus', []))}")
+        lines.append(f"- Preferred companies: {', '.join(plan['candidateModel'].get('preferredCompanies', []))}")
+        lines.append('- Queries used:')
+        for q in plan.get('queries', []):
+            lines.append(f"  - [{q['kind']}] {q['searchTerm']} @ {q['location']} — {q['reason']}")
+        lines.append('')
     lines.append('## Results')
     lines.append(f"- Total normalized results: {len(jobs)}")
     for job in jobs[:10]:

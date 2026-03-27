@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-import csv
 import json
 import os
 from pathlib import Path
+from openpyxl import Workbook
 
 
 def resolve_project_root() -> Path:
@@ -56,18 +56,29 @@ def main():
     run_id = source_file.stem
 
     fields = ['title', 'company', 'location', 'workMode', 'source', 'postedDate', 'url', 'summary']
-    csv_path = exports_dir / f'{run_id}.csv'
-    latest_path = exports_dir / 'latest.csv'
+    xlsx_path = exports_dir / f'{run_id}.xlsx'
+    latest_path = exports_dir / 'latest.xlsx'
 
-    with csv_path.open('w', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=fields)
-        writer.writeheader()
-        for job in jobs:
-            row = {k: job.get(k) for k in fields}
-            writer.writerow(row)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Jobs'
+    ws.append(fields)
 
-    latest_path.write_text(csv_path.read_text())
-    print(csv_path)
+    for job in jobs:
+        ws.append([job.get(k) for k in fields])
+
+    for column_cells in ws.columns:
+        max_len = 0
+        column_letter = column_cells[0].column_letter
+        for cell in column_cells:
+            value = '' if cell.value is None else str(cell.value)
+            if len(value) > max_len:
+                max_len = len(value)
+        ws.column_dimensions[column_letter].width = min(max_len + 2, 60)
+
+    wb.save(xlsx_path)
+    wb.save(latest_path)
+    print(xlsx_path)
 
 
 if __name__ == '__main__':
