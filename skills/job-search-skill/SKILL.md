@@ -1,14 +1,14 @@
 ---
 name: job-search-skill
-description: Run candidate-aware job discovery for the job-search-bot project. Use when an agent needs to read a candidate profile, interpret seniority and fit, build a targeted search strategy, execute live job retrieval through the project runtime, and save reviewed results for later user presentation. Do not use for applications, resume tailoring, or interview preparation. Fail clearly if the project runtime or live backend is unavailable.
+description: Run candidate-aware job discovery for the job-search-bot project. Use when an agent needs to read a candidate profile, infer seniority and fit directly from that profile, build a focused search strategy, execute live job retrieval through the project runtime, and save cleaned results for later user presentation. Do not use for applications, resume tailoring, or interview preparation. Fail clearly if the project runtime or live backend is unavailable.
 ---
 
 # Job Search Skill
 
 Use this skill to run **Step 1: candidate-aware discovery and collection** for the `job-search-bot` project.
 
-This skill is **project-centric** and **reasoning-first**.
-It should not behave like a dumb script launcher. The scripts exist to execute the plan. The skill is responsible for reading the candidate profile, deciding what matters, forming a search strategy, and then reviewing results against that strategy.
+This skill is **project-centric** and **search-plan-first**.
+It should not behave like a dumb script launcher. The scripts exist to execute the plan. The skill is responsible for reading the candidate profile, deciding what matters, forming a search strategy, and then reviewing results lightly for obvious mismatches.
 
 ## Core rule
 
@@ -17,10 +17,31 @@ Do not jump straight from profile file to raw search execution.
 Before running the backend, the agent must:
 
 1. read the candidate profile carefully
-2. infer the candidate model
+2. infer the candidate model from the profile itself
 3. decide how search should be shaped
 4. decide what should be avoided
-5. then execute the project workflow
+5. build a focused search plan
+6. then execute the project workflow
+
+## Important design rule
+
+Search/filter intelligence should come from the **profile**, not from app-level configuration.
+
+The runtime config is only for application-level concerns such as:
+- project root
+- python path
+- output path
+- backend defaults
+- source selection
+
+The candidate profile is where the agent should infer:
+- seniority
+- role family
+- domain relevance
+- preferred companies
+- location constraints
+- work mode constraints
+- what kinds of roles should be avoided
 
 ## What this skill does
 
@@ -32,7 +53,7 @@ This skill:
 - derives search strategy from candidate seniority, background, and preferences
 - runs a live JobSpy-backed backend search through the project runtime
 - saves raw backend results
-- normalizes results into the project schema
+- normalizes and lightly cleans results into the project schema
 - renders a human-readable run summary
 
 This skill does **not** yet do:
@@ -67,7 +88,7 @@ Do not silently produce fallback data.
 
 ## Candidate interpretation (mandatory)
 
-Before searching, extract and reason about:
+Before searching, extract and reason about from the profile:
 
 - likely seniority
 - target role family
@@ -81,7 +102,7 @@ Before searching, extract and reason about:
 
 ### Example reasoning expectations
 
-If the profile is for a recently graduated engineer with 1 year of experience, the search strategy should favor:
+If the profile is for a recently graduated engineer with around 1 year of experience, the search strategy should favor:
 
 - junior
 - graduate
@@ -89,7 +110,7 @@ If the profile is for a recently graduated engineer with 1 year of experience, t
 - early-career
 - software engineer / backend / full stack roles
 
-And should avoid or strongly down-rank:
+And should avoid or strongly suppress:
 
 - senior
 - staff
@@ -97,31 +118,33 @@ And should avoid or strongly down-rank:
 - principal
 - manager-heavy roles
 
-If the profile includes relevant domain history, such as banking or fintech-adjacent work, use that as a positive search and ranking signal where appropriate.
+If the profile includes relevant domain history, such as banking or fintech-adjacent work, use that as a positive search signal.
 
-If target companies are listed, treat them as genuine priority signals, not decorative metadata.
+If target companies are listed, treat them as genuine priority signals and search them explicitly.
 
 ## Search strategy formation (mandatory)
 
 Do not just pass through raw profile text.
 
-Build a search strategy from the interpreted profile.
+Build a concrete search plan from the interpreted profile.
 
 The strategy should include:
 
-- prioritized role titles
+- prioritized role-title queries
 - junior/entry-level variants when relevant
 - domain-aware variants when relevant
-- company-seeded searches for preferred companies
-- exclusions or down-ranking rules
+- company-targeted searches for preferred companies
+- terms to avoid
 - notes about what likely counts as weak fit
 
 ### Search strategy quality rules
 
-- Prefer targeted searches over noisy broad ones
+- Prefer fewer better searches over broad noisy ones
+- Low amount of high-quality results is better than many weak matches
 - Respect candidate seniority explicitly
 - Respect preferred companies explicitly
 - Use prior domain background when it helps narrow the search
+- Search target companies directly when they are listed
 - Avoid broad search plans that flood the pipeline with obviously mismatched senior roles
 
 ## Execution workflow
@@ -144,7 +167,18 @@ Before executing any scripts, produce a brief internal interpretation of:
 - preferred companies
 - avoid/down-rank patterns
 
-### 3. Execute the project workflow
+### 3. Build the search plan
+
+Construct a focused plan such as:
+
+- junior role queries
+- company-targeted queries
+- domain-aware queries
+- location-aware variants
+
+The plan should be based on profile reasoning, not on hardcoded filter rules in config.
+
+### 4. Execute the project workflow
 
 Use the configured Python interpreter to run these scripts from the project root:
 
@@ -155,20 +189,19 @@ Use the configured Python interpreter to run these scripts from the project root
 <pythonPath> skills/job-search-skill/scripts/render_search_summary.py
 ```
 
-### 4. Review results against the interpreted profile
+### 5. Review results lightly
 
 After retrieval, do not blindly accept the results.
 
-Review them for:
+Do a light quality pass for:
 
-- seniority mismatch
-- role-family mismatch
-- domain mismatch
-- preferred-company presence or absence
-- likely strong-fit roles
-- likely weak-fit roles
+- obvious seniority mismatch
+- obvious role-family mismatch
+- duplicate results
+- whether preferred companies appeared
+- whether the output reflects the candidate profile at all
 
-Call out obvious failures in retrieval quality if the results do not align with the candidate profile.
+This is not a numerical scoring stage. The goal is better search planning, not ranking theater.
 
 ## Operational guidance
 
@@ -179,7 +212,7 @@ Call out obvious failures in retrieval quality if the results do not align with 
 - Do not fabricate fallback data
 - When reporting to the user, separate:
   - retrieved jobs
-  - likely good-fit jobs
+  - likely relevant jobs
   - obvious mismatches
 
 ## Success condition
