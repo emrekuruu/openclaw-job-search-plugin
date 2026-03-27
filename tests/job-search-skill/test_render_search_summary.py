@@ -8,5 +8,5 @@ spec.loader.exec_module(mod)
 
 
 def test_module_paths_are_defined():
-    assert mod.RUNS_DIR.name == 'search-runs'
-    assert mod.JOBS_DIR.name == 'jobs'
+    assert mod.RUNS_DIR.as_posix().endswith('skills/job-search-skill/data/search-runs')
+    assert mod.JOBS_DIR.as_posix().endswith('skills/job-search-skill/data/jobs')

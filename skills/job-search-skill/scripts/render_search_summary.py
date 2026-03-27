@@ -2,9 +2,9 @@
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-RUNS_DIR = ROOT / 'data/search-runs'
-JOBS_DIR = ROOT / 'data/jobs'
+SKILL_ROOT = Path(__file__).resolve().parents[1]
+RUNS_DIR = SKILL_ROOT / 'data/search-runs'
+JOBS_DIR = SKILL_ROOT / 'data/jobs'
 
 
 def main():

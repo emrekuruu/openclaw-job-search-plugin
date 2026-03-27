@@ -4,9 +4,9 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-PROFILE = ROOT / 'data/profiles/sample-candidate-profile.md'
-RUNS_DIR = ROOT / 'data/search-runs'
+SKILL_ROOT = Path(__file__).resolve().parents[1]
+PROFILE = SKILL_ROOT / 'data/profiles/sample-software-engineer-profile.md'
+RUNS_DIR = SKILL_ROOT / 'data/search-runs'
 
 
 def slugify(text: str) -> str:
@@ -51,6 +51,9 @@ def extract_section_bullets(lines, section_heading):
 
 
 def main():
+    if not PROFILE.exists():
+        raise SystemExit(f'Profile not found: {PROFILE}')
+
     content = PROFILE.read_text()
     lines = content.splitlines()
 
@@ -65,15 +68,15 @@ def main():
     run = {
         'runId': run_id,
         'createdAt': now.isoformat(),
-        'backend': 'job-search-mcp-jobspy',
-        'profilePath': str(PROFILE.relative_to(ROOT)),
+        'backend': 'jobspy-local-adapter',
+        'profilePath': str(PROFILE.relative_to(SKILL_ROOT)),
         'desiredRoles': desired_roles,
         'targetCompanies': target_companies,
         'locations': preferred_locations,
         'workModes': work_modes,
         'freshnessWindow': '30d',
         'resultCount': 0,
-        'notes': 'Prepared locally from candidate profile. Backend execution not yet connected.'
+        'notes': 'Prepared from self-contained skill profile.'
     }
 
     RUNS_DIR.mkdir(parents=True, exist_ok=True)

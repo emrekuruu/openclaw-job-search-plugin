@@ -4,10 +4,10 @@ from pathlib import Path
 
 from jobspy import scrape_jobs
 
-ROOT = Path(__file__).resolve().parents[1]
-RUNS_DIR = ROOT / 'data/search-runs'
-RAW_DIR = ROOT / 'data/raw'
-CONFIG_PATH = ROOT / 'config/search-defaults.json'
+SKILL_ROOT = Path(__file__).resolve().parents[1]
+RUNS_DIR = SKILL_ROOT / 'data/search-runs'
+RAW_DIR = SKILL_ROOT / 'data/raw'
+CONFIG_PATH = SKILL_ROOT / 'config/search-defaults.json'
 
 
 def load_latest_run():
@@ -19,18 +19,9 @@ def load_latest_run():
 
 
 def load_config():
-    if CONFIG_PATH.exists():
-        return json.loads(CONFIG_PATH.read_text())
-    return {
-        'backend': 'jobspy-local-adapter',
-        'siteNames': ['indeed', 'linkedin', 'zip_recruiter', 'google'],
-        'resultsWanted': 15,
-        'freshnessHours': 720,
-        'linkedinFetchDescription': False,
-        'easyApply': False,
-        'defaultCountryIndeed': 'france',
-        'verbose': 1,
-    }
+    if not CONFIG_PATH.exists():
+        raise SystemExit(f'Config not found: {CONFIG_PATH}')
+    return json.loads(CONFIG_PATH.read_text())
 
 
 def build_requests(run, config):
@@ -73,34 +64,12 @@ def build_requests(run, config):
 def dataframe_to_records(df):
     if df is None:
         return []
-    records = json.loads(df.to_json(orient='records', date_format='iso'))
-    return records
-
-
-def stub_execute(requests):
-    raw_results = []
-    for idx, request in enumerate(requests, start=1):
-        raw_results.append({
-            'request': request,
-            'mode': 'stub-fallback',
-            'results': [
-                {
-                    'job_title': request['search_term'],
-                    'company_name': 'Example Corp' if idx % 2 else 'Sample Labs',
-                    'job_location': request['location'],
-                    'site_name': request['site_name'][0] if isinstance(request['site_name'], list) else request['site_name'],
-                    'job_url': f'https://example.com/jobs/{idx}',
-                    'date_posted': None,
-                    'is_remote': request['is_remote'],
-                    'description': f"Synthetic fallback result for {request['search_term']} in {request['location']}."
-                }
-            ]
-        })
-    return raw_results
+    return json.loads(df.to_json(orient='records', date_format='iso'))
 
 
 def live_execute(requests):
     payload = []
+    failures = []
     for request in requests:
         try:
             df = scrape_jobs(**request)
@@ -110,12 +79,17 @@ def live_execute(requests):
                 'results': dataframe_to_records(df),
             })
         except Exception as e:
+            failures.append({'request': request, 'error': repr(e)})
             payload.append({
                 'request': request,
                 'mode': 'error',
                 'error': repr(e),
                 'results': [],
             })
+
+    if not any(entry.get('mode') == 'live' and entry.get('results') for entry in payload):
+        raise SystemExit(f'Live job search failed or returned no results for all requests: {failures}')
+
     return payload
 
 
@@ -126,16 +100,10 @@ def main():
     requests = build_requests(run, config)
     raw_results = live_execute(requests)
 
-    if not any(entry.get('mode') == 'live' and entry.get('results') for entry in raw_results):
-        raw_results = stub_execute(requests)
-        mode = 'stub-fallback'
-    else:
-        mode = 'live'
-
     raw_payload = {
         'runId': run_id,
         'backend': 'jobspy-local-adapter',
-        'mode': mode,
+        'mode': 'live',
         'requests': requests,
         'rawResults': raw_results,
     }

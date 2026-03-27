@@ -3,10 +3,10 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-RAW_DIR = ROOT / 'data/raw'
-JOBS_DIR = ROOT / 'data/jobs'
-RUNS_DIR = ROOT / 'data/search-runs'
+SKILL_ROOT = Path(__file__).resolve().parents[1]
+RAW_DIR = SKILL_ROOT / 'data/raw'
+JOBS_DIR = SKILL_ROOT / 'data/jobs'
+RUNS_DIR = SKILL_ROOT / 'data/search-runs'
 
 
 def normalize_record(raw, run_id):

@@ -2,33 +2,24 @@
 
 ## Current execution model
 
-The skill currently operates through the skill-local project pipeline:
+The skill operates as a self-contained skill-local pipeline:
 
-1. `skills/job-search-skill/scripts/prepare_search_run.py`
-2. `skills/job-search-skill/scripts/search_backend_jobspy.py`
-3. `skills/job-search-skill/scripts/normalize_jobs.py`
-4. `skills/job-search-skill/scripts/render_search_summary.py`
+1. `scripts/prepare_search_run.py`
+2. `scripts/search_backend_jobspy.py`
+3. `scripts/normalize_jobs.py`
+4. `scripts/render_search_summary.py`
 
-## Environment
+## Runtime
 
-The project is now managed with `uv`.
+This skill expects a shared OpenClaw skill runtime interpreter at:
 
-Typical setup from project root:
+- `~/.openclaw-skill-venv/bin/python`
 
-```bash
-uv sync
-source .venv/bin/activate
-```
+Required packages in that runtime:
 
-## Backend
-
-The backend is currently a local JobSpy-backed adapter.
-
-This keeps the project fast to iterate on while preserving a clean boundary between:
-
-- agent-facing skill behavior
-- project-owned workflow
-- backend search execution
+- `python-jobspy`
+- `pandas`
+- `pydantic`
 
 ## Outputs to check
 

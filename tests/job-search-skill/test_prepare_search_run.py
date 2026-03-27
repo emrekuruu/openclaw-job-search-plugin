@@ -26,3 +26,8 @@ def test_extract_nested_list_and_section_bullets():
     ]
     assert mod.extract_nested_list(lines, '## Target Direction', 'Desired roles') == ['Product Manager', 'AI Product Manager']
     assert mod.extract_section_bullets(lines, '## Target Companies') == ['OpenAI', 'Mistral AI']
+
+
+def test_skill_local_paths_are_used():
+    assert mod.SKILL_ROOT.name == 'job-search-skill'
+    assert mod.PROFILE.as_posix().endswith('skills/job-search-skill/data/profiles/sample-software-engineer-profile.md')

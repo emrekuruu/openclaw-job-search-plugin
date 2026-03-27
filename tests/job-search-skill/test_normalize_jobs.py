@@ -26,3 +26,8 @@ def test_normalize_record_maps_backend_fields():
     assert result['url'] == 'https://example.com/job/1'
     assert result['workMode'] == 'remote'
     assert result['runId'] == 'run-123'
+
+
+def test_skill_local_paths_are_used():
+    assert mod.RAW_DIR.as_posix().endswith('skills/job-search-skill/data/raw')
+    assert mod.JOBS_DIR.as_posix().endswith('skills/job-search-skill/data/jobs')
