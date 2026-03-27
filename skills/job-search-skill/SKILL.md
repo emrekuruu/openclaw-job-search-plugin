@@ -1,13 +1,13 @@
 ---
 name: job-search-skill
-description: Run single-pass job discovery for the Automated Job Search project using a profile file, the local JobSpy-backed search pipeline, and project-owned normalization/output files. Use when an agent needs to find and collect jobs from a candidate profile, desired roles, locations, and target companies, then save raw results, normalized job records, and a summary. Do not use for ranking, applications, resume tailoring, tracking, or interview preparation.
+description: Run single-pass job discovery for the Automated Job Search project using a profile file, the skill-local JobSpy-backed search pipeline, and project-owned normalization/output files. Use when an agent needs to find and collect jobs from a candidate profile, desired roles, locations, and target companies, then save raw results, normalized job records, and a summary. Do not use for ranking, applications, resume tailoring, tracking, or interview preparation.
 ---
 
 # Job Search Skill
 
 Use this skill to run **Step 1: discovery and collection** inside the `job-search-bot` project.
 
-This skill is agent-facing. It tells the agent how to perform one discovery pass using the local project pipeline, which currently uses a JobSpy-backed local adapter.
+This skill is agent-facing. It tells the agent how to perform one discovery pass using the skill-local pipeline, which currently uses a JobSpy-backed local adapter.
 
 ## What this skill does
 
@@ -42,7 +42,7 @@ Expected project structure:
 - `data/search-runs/`
 - `data/raw/`
 - `data/jobs/`
-- `scripts/`
+- `skills/job-search-skill/scripts/`
 
 Default profile example:
 
@@ -73,10 +73,10 @@ If the user does not specify a path, default to:
 Run these scripts in order from the project root:
 
 ```bash
-python scripts/prepare_search_run.py
-python scripts/search_backend_jobspy.py
-python scripts/normalize_jobs.py
-python scripts/render_search_summary.py
+python skills/job-search-skill/scripts/prepare_search_run.py
+python skills/job-search-skill/scripts/search_backend_jobspy.py
+python skills/job-search-skill/scripts/normalize_jobs.py
+python skills/job-search-skill/scripts/render_search_summary.py
 ```
 
 ### 4. Inspect outputs
@@ -104,7 +104,7 @@ The run should produce:
 
 ## Backend note
 
-The current implementation uses the local script pipeline and a JobSpy-backed adapter in `scripts/search_backend_jobspy.py`.
+The current implementation uses the skill-local script pipeline and a JobSpy-backed adapter in `skills/job-search-skill/scripts/search_backend_jobspy.py`.
 
 Conceptually this corresponds to the `job-search-mcp-jobspy` discovery direction, but the current implementation is project-local and script-driven.
 

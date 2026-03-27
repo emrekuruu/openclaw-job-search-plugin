@@ -2,12 +2,12 @@
 
 ## Current execution model
 
-The skill currently operates through the local project pipeline:
+The skill currently operates through the skill-local project pipeline:
 
-1. `scripts/prepare_search_run.py`
-2. `scripts/search_backend_jobspy.py`
-3. `scripts/normalize_jobs.py`
-4. `scripts/render_search_summary.py`
+1. `skills/job-search-skill/scripts/prepare_search_run.py`
+2. `skills/job-search-skill/scripts/search_backend_jobspy.py`
+3. `skills/job-search-skill/scripts/normalize_jobs.py`
+4. `skills/job-search-skill/scripts/render_search_summary.py`
 
 ## Backend
 
