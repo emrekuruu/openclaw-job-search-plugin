@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import json
 import os
 from pathlib import Path
@@ -19,6 +20,7 @@ EXPORT_FIELDS = [
     'reasoning',
     'summary',
     'listingId',
+    'evaluationPath',
 ]
 
 
@@ -56,14 +58,6 @@ def load_runtime_config(project_root: Path) -> dict:
     return data
 
 
-def latest_final_results_path(output_base: Path) -> Path:
-    final_results_dir = output_base / 'final-results'
-    final_files = sorted(final_results_dir.glob('*.json')) if final_results_dir.exists() else []
-    if not final_files:
-        raise SystemExit(f'No final-results JSON files found in {final_results_dir}')
-    return final_files[-1]
-
-
 def load_json(path: Path):
     return json.loads(path.read_text())
 
@@ -78,69 +72,55 @@ def stringify(value) -> str:
     return str(value)
 
 
-def load_listing_map(payload: dict) -> dict:
+def latest_run_dir(base_dir: Path) -> Path:
+    run_dirs = sorted(path for path in base_dir.iterdir() if path.is_dir()) if base_dir.exists() else []
+    if not run_dirs:
+        raise SystemExit(f'No run folders found in {base_dir}')
+    return run_dirs[-1]
+
+
+def resolve_run_id(output_base: Path, run_id: str | None) -> str:
+    if run_id:
+        return run_id
+    return latest_run_dir(output_base / 'evaluations').name
+
+
+def load_listing_map(search_run_dir: Path) -> dict:
+    listings_dir = search_run_dir / 'listings'
+    if not listings_dir.exists():
+        raise SystemExit(f'Listings directory not found: {listings_dir}')
+
     listing_map = {}
-
-    for item in payload.get('finalListings') or []:
-        listing_id = item.get('listingId') or item.get('id')
-        if listing_id:
-            listing_map[listing_id] = item
-
-    for file_path in payload.get('evaluatedListingFiles') or []:
-        path = Path(file_path)
-        if not path.exists():
-            continue
-        listing = load_json(path)
+    for listing_path in sorted(listings_dir.glob('*.json')):
+        listing = load_json(listing_path)
         listing_id = listing.get('id')
         if listing_id:
             listing_map[listing_id] = listing
-
-    listings_dir = payload.get('listingsDir')
-    if listings_dir:
-        path = Path(listings_dir)
-        if path.exists():
-            for listing_path in sorted(path.glob('*.json')):
-                listing = load_json(listing_path)
-                listing_id = listing.get('id')
-                if listing_id and listing_id not in listing_map:
-                    listing_map[listing_id] = listing
-
     return listing_map
 
 
-def build_export_rows(payload: dict) -> list[dict]:
-    listing_map = load_listing_map(payload)
+def list_evaluation_files(evaluations_dir: Path) -> list[Path]:
+    files = []
+    for path in sorted(evaluations_dir.glob('*.json')):
+        if path.name.endswith('.error.json'):
+            continue
+        files.append(path)
+    return files
 
-    if payload.get('evaluations'):
-        rows = []
-        for evaluation in payload['evaluations']:
-            listing_id = evaluation.get('listingId')
-            listing = listing_map.get(listing_id, {})
-            rows.append({
-                'score': evaluation.get('score'),
-                'decision': evaluation.get('decision'),
-                'title': listing.get('title'),
-                'company': listing.get('company'),
-                'location': listing.get('location'),
-                'workMode': listing.get('workMode'),
-                'source': listing.get('source'),
-                'postedDate': listing.get('postedDate'),
-                'url': listing.get('url'),
-                'reasoning': evaluation.get('reasoning'),
-                'summary': listing.get('summary'),
-                'listingId': listing_id,
-            })
-        return sorted(rows, key=lambda row: row.get('score') if row.get('score') is not None else -1, reverse=True)
 
-    final_listings = payload.get('finalListings') or []
-    if not isinstance(final_listings, list) or not final_listings:
-        raise SystemExit('Final-results JSON must contain either evaluations or finalListings.')
+def build_export_rows(evaluations_dir: Path, listing_map: dict) -> list[dict]:
+    evaluation_files = list_evaluation_files(evaluations_dir)
+    if not evaluation_files:
+        raise SystemExit(f'No evaluation JSON files found in {evaluations_dir}')
 
     rows = []
-    for listing in final_listings:
+    for evaluation_path in evaluation_files:
+        evaluation = load_json(evaluation_path)
+        listing_id = evaluation.get('listingId') or evaluation_path.stem
+        listing = listing_map.get(listing_id, {})
         rows.append({
-            'score': listing.get('score'),
-            'decision': listing.get('decision'),
+            'score': evaluation.get('score'),
+            'decision': evaluation.get('decision'),
             'title': listing.get('title'),
             'company': listing.get('company'),
             'location': listing.get('location'),
@@ -148,18 +128,19 @@ def build_export_rows(payload: dict) -> list[dict]:
             'source': listing.get('source'),
             'postedDate': listing.get('postedDate'),
             'url': listing.get('url'),
-            'reasoning': listing.get('reasoning'),
+            'reasoning': evaluation.get('reasoning'),
             'summary': listing.get('summary'),
-            'listingId': listing.get('listingId') or listing.get('id'),
+            'listingId': listing_id,
+            'evaluationPath': str(evaluation_path),
         })
 
     return sorted(rows, key=lambda row: row.get('score') if row.get('score') is not None else -1, reverse=True)
 
 
-def write_xlsx(rows: list[dict], xlsx_path: Path) -> None:
+def write_xlsx(rows: list[dict], xlsx_path: Path, sheet_title: str) -> None:
     wb = Workbook()
     ws = wb.active
-    ws.title = 'Final Results'
+    ws.title = sheet_title
     ws.append(EXPORT_FIELDS)
 
     for row in rows:
@@ -176,23 +157,36 @@ def write_xlsx(rows: list[dict], xlsx_path: Path) -> None:
     wb.save(xlsx_path)
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description='Export one evaluation run to a single Excel workbook.')
+    parser.add_argument('--run-id', help='Evaluation/search run ID. Defaults to the latest run under runtime-data/evaluations/.')
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
     project_root = resolve_project_root()
     runtime = load_runtime_config(project_root)
     output_base = Path(runtime['outputBase'])
+    run_id = resolve_run_id(output_base, args.run_id)
+
+    evaluations_dir = output_base / 'evaluations' / run_id
+    if not evaluations_dir.exists():
+        raise SystemExit(f'Evaluations directory not found: {evaluations_dir}')
+
+    search_run_dir = output_base / 'search-runs' / run_id
+    if not search_run_dir.exists():
+        raise SystemExit(f'Search run directory not found: {search_run_dir}')
+
     exports_dir = output_base / 'exports'
     exports_dir.mkdir(parents=True, exist_ok=True)
 
-    source_file = latest_final_results_path(output_base)
-    payload = load_json(source_file)
-    rows = build_export_rows(payload)
+    rows = build_export_rows(evaluations_dir, load_listing_map(search_run_dir))
 
-    run_id = payload.get('runId') or source_file.stem
     xlsx_path = exports_dir / f'{run_id}.xlsx'
     latest_path = exports_dir / 'latest.xlsx'
-
-    write_xlsx(rows, xlsx_path)
-    write_xlsx(rows, latest_path)
+    write_xlsx(rows, xlsx_path, sheet_title='Evaluations')
+    write_xlsx(rows, latest_path, sheet_title='Evaluations')
     print(xlsx_path)
 
 

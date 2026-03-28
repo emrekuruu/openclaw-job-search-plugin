@@ -58,12 +58,20 @@ job-search-bot/
 │   └── profiles/
 │       └── sample-software-engineer-profile.md
 ├── runtime-data/
-│   └── search-runs/
-│       └── <runId>/
-│           ├── search.json
-│           ├── listings/
-│           │   └── <listingId>.json
-│           └── summary.md   # optional
+│   ├── search-runs/
+│   │   └── <runId>/
+│   │       ├── search.json
+│   │       ├── listings/
+│   │       │   └── <listingId>.json
+│   │       └── summary.md   # optional
+│   ├── evaluations/
+│   │   └── <runId>/
+│   │       ├── <listingId>.json
+│   │       └── <listingId>.error.json   # optional
+│   └── exports/
+│       └── <runId>.xlsx
+├── scripts/
+│   └── export_jobs.py
 ├── skills/
 │   ├── job-search-skill/
 │   └── job-listing-evaluation-skill/
@@ -106,6 +114,28 @@ Internship experience in the background does **not** automatically mean the cand
 ### Scoring rule
 
 The evaluation layer should use a **single 0-100 score system everywhere**.
+
+---
+
+## Evaluation architecture
+
+Evaluation is intentionally file-based so every listing can be processed independently and safely in parallel.
+
+For a given run:
+
+- source listings live in `runtime-data/search-runs/<runId>/listings/`
+- evaluator outputs live in `runtime-data/evaluations/<runId>/`
+- each evaluator writes exactly one file: `runtime-data/evaluations/<runId>/<listingId>.json`
+- optional failures can be written as `runtime-data/evaluations/<runId>/<listingId>.error.json`
+
+The evaluator contract is:
+
+1. the caller assigns one listing and one explicit `outputPath`
+2. the evaluator reads the profile and listing
+3. the evaluator writes the JSON artifact directly to `outputPath`
+4. aggregation reads files from disk later
+
+That means final aggregation does **not** depend on stdout capture or serialized in-memory collection.
 
 ---
 
@@ -156,6 +186,36 @@ Expected flow:
 
 ---
 
+## Evaluation + export workflow
+
+Evaluators should be launched concurrently, one listing per evaluator.
+
+Each evaluator should receive:
+
+- `profilePath`
+- `listingPath`
+- `runId`
+- `outputPath=runtime-data/evaluations/<runId>/<listingId>.json`
+
+After evaluators finish, export the run to Excel with:
+
+```bash
+export JOB_SEARCH_BOT_ROOT="$PWD"
+.venv/bin/python scripts/export_jobs.py --run-id <runId>
+```
+
+Behavior:
+
+1. read all `runtime-data/evaluations/<runId>/*.json` files except `*.error.json`
+2. enrich rows from `runtime-data/search-runs/<runId>/listings/*.json`
+3. sort rows by score descending
+4. write `runtime-data/exports/<runId>.xlsx`
+5. also refresh `runtime-data/exports/latest.xlsx`
+
+If `--run-id` is omitted, the exporter uses the latest run under `runtime-data/evaluations/`.
+
+---
+
 ## Skills in this repo
 
 ### `job-search-skill`
@@ -176,6 +236,7 @@ Owns post-retrieval evaluation only:
 - evaluate one collected listing against a candidate profile
 - decide `keep` or `drop`
 - assign a single 0-100 score
+- write one JSON evaluation artifact per listing
 - return concise reasoning
 
 ---
@@ -185,5 +246,5 @@ Owns post-retrieval evaluation only:
 - live source noise still exists
 - cleanup remains intentionally lightweight
 - summary generation is optional
-- evaluation remains a separate post-retrieval step
-- Excel export reads the latest `runtime-data/final-results/*.json` artifact and writes `runtime-data/exports/*.xlsx`
+- evaluation orchestration is external to this repo; this repo defines the file contract and export script
+- `.error.json` files are intentionally excluded from the Excel export

@@ -12,11 +12,7 @@ Evaluate listings **after** retrieval.
 1. Read the candidate profile first.
 2. Read the collected listing.
 3. Score the listing on a **single 0-100 scale**.
-4. Output one record per listing with:
-   - `decision`
-   - `score` (0-100)
-   - `reasoning`
-   - optional dimension breakdowns that also use 0-100 values
+4. Write exactly one JSON artifact per listing to the caller-provided output path.
 5. Keep reasoning concise and specific.
 6. Make hard mismatches explicit; do not hide them behind a middling score.
 
@@ -30,5 +26,13 @@ Evaluate listings **after** retrieval.
 ## Output contract
 
 Use the schema in `references/evaluation-schema.md`.
+
+Write one file per listing to:
+- `runtime-data/evaluations/<runId>/<listingId>.json`
+
+If the evaluator cannot complete after reading inputs, it may write:
+- `runtime-data/evaluations/<runId>/<listingId>.error.json`
+
+Do **not** rely on stdout to carry the evaluation payload. Stdout should only confirm success or report failure.
 
 If the user wants an example payload or field meanings, read that reference before responding.

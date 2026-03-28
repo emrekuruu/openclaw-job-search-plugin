@@ -12,7 +12,6 @@ runtime-data/jobs/*.json
 runtime-data/search-runs/*.json
 runtime-data/search-runs/*.md
 runtime-data/search-plans/*.json
-runtime-data/exports/*.xlsx
 runtime-data/job-listings/
 runtime-data/evaluations/
-runtime-data/final-results/
+runtime-data/exports/

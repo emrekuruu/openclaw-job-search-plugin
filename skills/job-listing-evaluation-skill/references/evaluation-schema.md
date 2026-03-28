@@ -56,11 +56,14 @@ Suggested dimensions, each on a 0-100 scale:
 
 ## Output shape
 
-Return one JSON object per evaluated listing.
+Write one JSON object per evaluated listing to the evaluator's assigned output path.
 
 ```json
 {
   "listingId": "job-001",
+  "runId": "2026-03-28-sample-profile",
+  "profilePath": "/absolute/path/to/profile.md",
+  "listingPath": "/absolute/path/to/runtime-data/search-runs/2026-03-28-sample-profile/listings/job-001.json",
   "decision": "keep",
   "score": 84,
   "reasoning": "Matches backend/software target family, junior level is aligned, and the stack overlap looks interview-viable.",
@@ -73,9 +76,16 @@ Return one JSON object per evaluated listing.
     "locationWorkModeFit": 95,
     "practicalConstraints": 75
   },
-  "flags": []
+  "flags": [],
+  "evaluatedAt": "2026-03-28T17:00:00+01:00"
 }
 ```
+
+Canonical path:
+- `runtime-data/evaluations/<runId>/<listingId>.json`
+
+Optional failure artifact:
+- `runtime-data/evaluations/<runId>/<listingId>.error.json`
 
 ## Required reasoning style
 
