@@ -1,68 +1,49 @@
 ---
 name: job-search-skill
-description: Minimal agent-controlled job retrieval for the job-search-bot project. Use when an agent should read a candidate profile, decide the search queries and filters from its own understanding, write a simple search.json plan, run JobSpy searches, and save one JSON file per listing. Do not use regex-driven profile extraction or overbuilt intermediate processing. Keep the flow simple and inspectable.
+description: Agent-controlled job retrieval for the job-search-bot project. Use when the agent should read a candidate profile, decide the search itself, use JobSpy directly, and write only a search.json plus one JSON file per listing. Keep the flow minimal and inspectable.
 ---
 
 # Job Search Skill
 
-Run a simple retrieval flow.
+Start over simple.
 
-## Philosophy
-
-The agent should control the search.
-
-Do not hide profile understanding inside regex-heavy scripts.
-Do not generate a maze of intermediate artifacts.
-Do not pretend the scripts are doing the thinking.
+## What the agent should do
 
 The agent should:
-- read the profile
-- decide what the candidate is looking for
-- decide queries
-- decide filters
-- explain why each query exists
-- explain why each filter was chosen
-
-The scripts should only:
-- create a blank `search.json`
-- run JobSpy using the agent-authored queries and filters
+- read the candidate profile
+- decide what the person is looking for
+- decide the queries
+- decide the filters for each query
+- explain the reasoning in `search.json`
+- use JobSpy directly
 - write one JSON file per listing
-- render a readable summary
 
-## Required artifacts
+## What to write
 
-Each run should only need:
-- `search.json`
-- `listings/`
+For each run, write only:
+- `runtime-data/search-runs/<runId>/search.json`
+- `runtime-data/search-runs/<runId>/listings/<listingId>.json`
 
-`search.json` should contain:
-- profile path
-- candidate understanding
-- one entry per query
-- reasoning for each query
-- filters for each query
-- reasoning for each filter
+Optional:
+- `runtime-data/search-runs/<runId>/summary.md`
 
-`listings/` should contain:
-- one JSON file per retrieved listing
+## search.json shape
 
-## Workflow
+The file should contain:
+- `profilePath`
+- `candidateUnderstanding`
+- `queries`
 
-Use these scripts:
-
-```bash
-<pythonPath> skills/job-search-skill/scripts/prepare_search_run.py
-# agent edits search.json
-<pythonPath> skills/job-search-skill/scripts/search_backend_jobspy.py
-<pythonPath> skills/job-search-skill/scripts/normalize_jobs.py
-<pythonPath> skills/job-search-skill/scripts/render_search_summary.py
-```
+Each query should contain:
+- `query`
+- `reasoning`
+- `filters`
+- `filterReasoning`
 
 ## Rules
 
-1. Default to full-time unless the profile explicitly asks for internship or contract work.
-2. Let the agent decide all queries and filters.
-3. Keep each query explicit and justified.
-4. Keep filters per-query, not hidden globally.
-5. Keep the artifact structure minimal and easy to inspect.
-6. Fail clearly if `search.json` is empty or malformed.
+- The agent owns all search decisions.
+- Do not use regex-based extraction as the intelligence layer.
+- Default to full-time unless the profile explicitly wants internship or contract work.
+- Keep the retrieval process easy to inspect.
+- Do not create extra intermediate artifacts unless absolutely necessary.
