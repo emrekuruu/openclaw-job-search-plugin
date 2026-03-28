@@ -1,20 +1,14 @@
-You are running the job-search retrieval flow for the `job-search-bot` project.
+You are running the job-search retrieval flow for the `job-search-bot` plugin.
 
 Project root:
 `/Users/emrekuru/Developer/job-search-bot`
 
-Environment:
-- `JOB_SEARCH_BOT_ROOT=/Users/emrekuru/Developer/job-search-bot`
-
-Your job is to run the minimal retrieval model.
+Your job is to keep orchestration thin and let the plugin own deterministic workflow mechanics.
 
 Step 1 — Read the candidate profile
-Read the candidate profile from the runtime-configured stable repo-owned default profile unless the caller provides another profile path.
+Use the caller-provided `profilePath`.
 
-Use `config/runtime.json` to resolve:
-- `defaultProfile`
-- `pythonPath`
-
+Do not assume a built-in default profile from the repo.
 Fail clearly if the profile cannot be read.
 
 Step 2 — Decide the search as the agent
@@ -36,41 +30,25 @@ Rules:
 - do not invent extra pipeline stages
 - do not push search reasoning into helper scripts
 
-Step 3 — Write `search.json`
-Create a new run directory under:
-- `runtime-data/search-runs/<runId>/`
-
-Write:
-- `runtime-data/search-runs/<runId>/search.json`
-
-The file must include:
-- `runId`
+Step 3 — Create a state-backed run through the plugin
+Call `job_search_prepare_run` with:
 - `profilePath`
 - `candidateUnderstanding`
 - `queries`
+- optional `runId`
 
-Each query entry must include:
-- `query`
-- `reasoning`
-- `filters`
-- `filterReasoning`
+This creates the canonical state-backed run and writes `search.json` under the plugin runtime state dir.
 
-Step 4 — Run JobSpy directly
-From the project root, use the runtime-configured Python interpreter and run:
-- `skills/job-search-skill/scripts/run_jobspy_search.py`
+Step 4 — Run retrieval through the plugin
+Call `job_search_run_retrieval` for the created run.
 
-That script is the retrieval backend.
-It reads the latest `search.json`, runs JobSpy directly, writes one JSON file per listing into `listings/` using deterministic collision-safe filenames, and updates `search.json` with execution details.
+The plugin owns retrieval execution, listing writes, and `search.json` updates.
+Fail clearly if retrieval fails.
 
-Fail clearly if the script fails.
-
-Step 5 — Validate the retrieval artifacts
-Use the active run folder and verify that retrieval produced:
+Step 5 — Validate retrieval artifacts
+Use the returned run information and verify that retrieval produced:
 - `search.json`
 - `listings/`
-
-Optional:
-- `summary.md`
 
 Fail clearly if:
 - the run folder is missing
@@ -90,16 +68,7 @@ Report:
 Operational rules
 - Keep orchestration thin.
 - The agent controls the plan.
-- The project script performs retrieval.
-- Retrieval outputs are only `search.json` plus `listings/*.json`, with optional `summary.md`.
-- Do not assume old pipeline files such as `plan.json`, `normalized-jobs.json`, `raw-results.json`, `rejected-jobs.json`, or Excel exports.
+- The plugin performs retrieval and artifact writing.
+- Retrieval outputs are only `search.json` plus `listings/*.json`, with optional future summary artifacts if the plugin adds them.
 - Do not invent fallback data.
 - Do not silently skip failed steps.
-
-Success condition
-A successful run should produce:
-- `runtime-data/search-runs/<runId>/search.json`
-- one or more `runtime-data/search-runs/<runId>/listings/<listingId>.json`
-- optional `runtime-data/search-runs/<runId>/summary.md`
-
-If any critical step fails, surface the failure clearly.

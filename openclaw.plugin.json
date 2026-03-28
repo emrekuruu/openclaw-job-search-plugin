@@ -6,14 +6,6 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
-      "runtimeDataDir": {
-        "type": "string",
-        "description": "Runtime artifact root relative to the plugin repo."
-      },
-      "defaultProfilePath": {
-        "type": "string",
-        "description": "Default candidate profile path relative to the plugin repo."
-      },
       "evaluationConcurrency": {
         "type": "integer",
         "minimum": 1,

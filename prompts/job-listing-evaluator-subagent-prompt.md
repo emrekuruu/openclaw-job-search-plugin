@@ -8,8 +8,8 @@ Inputs:
 - `errorPath`: optional path where you should write an error JSON if evaluation fails
 
 Tasks:
-1. read the candidate profile
-2. read the listing JSON
+1. read the candidate profile from `profilePath`
+2. read the listing JSON from `listingPath`
 3. evaluate the listing using the repo's job-listing-evaluation-skill contract
 4. write exactly one JSON object to `outputPath`
 5. if you cannot complete the evaluation, write a JSON error object to `errorPath`
@@ -31,3 +31,4 @@ Rules:
 - do not rely on stdout for the result
 - the result must be written to `outputPath`
 - keep reasoning concise and specific
+- do not assume any repo-local default profile; always use the provided `profilePath`

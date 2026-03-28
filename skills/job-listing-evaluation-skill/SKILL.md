@@ -10,7 +10,7 @@ This skill is now thin.
 ## Evaluator responsibilities
 
 The evaluator agent should:
-- read one candidate profile
+- read one candidate profile from the provided `profilePath`
 - read one listing JSON file
 - decide keep or drop
 - assign a 0-100 score
@@ -19,8 +19,8 @@ The evaluator agent should:
 
 ## Required artifact
 
-Write one JSON file per evaluated listing under:
-- `runtime-data/evaluations/<runId>/<listingId>.json`
+Write one JSON file per evaluated listing under the plugin's OpenClaw state storage:
+- `<OPENCLAW_STATE_DIR>/plugin-runtimes/job-search/evaluations/<runId>/<listingId>.json`
 
 Optional failure artifact:
-- `runtime-data/evaluations/<runId>/<listingId>.error.json`
+- `<OPENCLAW_STATE_DIR>/plugin-runtimes/job-search/evaluations/<runId>/<listingId>.error.json`

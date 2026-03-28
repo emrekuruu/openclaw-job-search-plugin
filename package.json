@@ -4,10 +4,13 @@
   "type": "module",
   "private": true,
   "openclaw": {
-    "extensions": ["./index.ts"]
+    "extensions": [
+      "./index.ts"
+    ]
   },
   "dependencies": {
+    "@sinclair/typebox": "^0.34.41",
     "openclaw": "*",
-    "@sinclair/typebox": "^0.34.41"
+    "xlsx": "^0.18.5"
   }
 }

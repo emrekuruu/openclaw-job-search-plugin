@@ -2,8 +2,8 @@
 
 Each evaluator should write one JSON file.
 
-Path:
-- `runtime-data/evaluations/<runId>/<listingId>.json`
+Canonical path:
+- `<OPENCLAW_STATE_DIR>/plugin-runtimes/job-search/evaluations/<runId>/<listingId>.json`
 
 Shape:
 

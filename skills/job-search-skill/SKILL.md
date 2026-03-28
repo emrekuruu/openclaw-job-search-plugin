@@ -10,7 +10,7 @@ This skill is now thin.
 ## Agent responsibilities
 
 The agent should:
-- read the candidate profile
+- read the caller-provided candidate profile
 - decide candidate understanding
 - decide search queries
 - decide per-query filters
@@ -20,14 +20,15 @@ The agent should:
 ## Plugin tools
 
 Use plugin tools for the deterministic steps:
-- `job_search_prepare_run`
+- `job_search_prepare_run` with required `profilePath`
 - `job_search_run_retrieval`
-- `job_search_spawn_evaluators`
+- `job_search_spawn_evaluators` with required `profilePath`
 - `job_search_export_run`
-- `job_search_full_run`
+- `job_search_full_run` with required `profilePath`
 
 ## Retrieval philosophy
 
 - default to full-time unless the profile explicitly asks for internship or contract work
 - the agent owns the search reasoning
 - the plugin owns the run mechanics and artifact writing
+- runtime artifacts live under the OpenClaw state dir, not in the repo checkout

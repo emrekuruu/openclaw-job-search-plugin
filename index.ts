@@ -3,7 +3,6 @@ import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import xlsx from "xlsx";
 
@@ -16,11 +15,15 @@ function repoRoot() {
   return __dirname;
 }
 
+function resolvePluginStateDir(api: any) {
+  const stateDir = api.runtime.state.resolveStateDir(process.env);
+  return path.join(stateDir, "plugin-runtimes", api.id);
+}
+
 function resolvePluginConfig(api: any) {
   const cfg = (api.pluginConfig ?? {}) as Record<string, unknown>;
   return {
-    runtimeDataDir: path.resolve(repoRoot(), String(cfg.runtimeDataDir ?? "runtime-data")),
-    defaultProfilePath: path.resolve(repoRoot(), String(cfg.defaultProfilePath ?? "assets/profiles/sample-software-engineer-profile.md")),
+    stateDir: resolvePluginStateDir(api),
     evaluationConcurrency: Number(cfg.evaluationConcurrency ?? 20),
     evaluationModel: cfg.evaluationModel ? String(cfg.evaluationModel) : null,
   };
@@ -65,6 +68,36 @@ function listJson(dir: string) {
     .map((name) => path.join(dir, name));
 }
 
+function requireExistingFile(filePath: string, label: string) {
+  if (!existsSync(filePath)) {
+    throw new Error(`${label} does not exist: ${filePath}`);
+  }
+}
+
+function loadSearchDefaults() {
+  const defaultsPath = path.join(repoRoot(), "config", "search-defaults.json");
+  requireExistingFile(defaultsPath, "Search defaults");
+  return readJson(defaultsPath);
+}
+
+function resolveArtifacts(stateDir: string, runId: string) {
+  const runDir = path.join(stateDir, "search-runs", runId);
+  const listingsDir = path.join(runDir, "listings");
+  const searchPath = path.join(runDir, "search.json");
+  const evaluationsDir = path.join(stateDir, "evaluations", runId);
+  const exportsDir = path.join(stateDir, "exports");
+  return {
+    stateDir,
+    runDir,
+    searchPath,
+    listingsDir,
+    evaluationsDir,
+    exportsDir,
+    exportPath: path.join(exportsDir, `${runId}.xlsx`),
+    latestExportPath: path.join(exportsDir, "latest.xlsx"),
+  };
+}
+
 function listingIdentity(listing: Json) {
   return String(
     listing.url || `${listing.company || "unknown-company"}::${listing.title || "unknown-title"}::${listing.location || "unknown-location"}::${listing.query || "unknown-query"}`,
@@ -99,12 +132,8 @@ function normalizeListing(runId: string, raw: Json, queryEntry: Json) {
   return listing;
 }
 
-function loadSearchDefaults() {
-  return readJson(path.join(repoRoot(), "config", "search-defaults.json"));
-}
-
-function latestRunDir(runtimeDataDir: string) {
-  const runsDir = path.join(runtimeDataDir, "search-runs");
+function latestRunDir(stateDir: string) {
+  const runsDir = path.join(stateDir, "search-runs");
   ensureDir(runsDir);
   const dirs = readdirSync(runsDir, { withFileTypes: true })
     .filter((d) => d.isDirectory())
@@ -116,7 +145,9 @@ function latestRunDir(runtimeDataDir: string) {
 
 async function runJobSpySearch(runDir: string) {
   const searchPath = path.join(runDir, "search.json");
+  requireExistingFile(searchPath, "search.json");
   const search = readJson(searchPath);
+  requireExistingFile(String(search.profilePath || ""), "Candidate profile");
   const queries = search.queries || [];
   if (!queries.length) throw new Error("search.json has no queries.");
   const defaults = loadSearchDefaults();
@@ -170,6 +201,7 @@ async function runJobSpySearch(runDir: string) {
   search.listingCount = listingCount;
   search.executedQueries = executedQueries;
   search.artifacts = {
+    ...(search.artifacts || {}),
     searchPath,
     listingsDir,
   };
@@ -177,15 +209,13 @@ async function runJobSpySearch(runDir: string) {
   return { searchPath, listingsDir, listingCount };
 }
 
-function exportRun(runtimeDataDir: string, runId: string) {
-  const evalDir = path.join(runtimeDataDir, "evaluations", runId);
-  const listingDir = path.join(runtimeDataDir, "search-runs", runId, "listings");
-  const exportDir = path.join(runtimeDataDir, "exports");
-  ensureDir(exportDir);
-  const evaluationFiles = listJson(evalDir);
+function exportRun(stateDir: string, runId: string) {
+  const artifacts = resolveArtifacts(stateDir, runId);
+  ensureDir(artifacts.exportsDir);
+  const evaluationFiles = listJson(artifacts.evaluationsDir);
   const rows = evaluationFiles.map((filePath) => {
     const evaluation = readJson(filePath);
-    const listingPath = path.join(listingDir, `${evaluation.listingId}.json`);
+    const listingPath = path.join(artifacts.listingsDir, `${evaluation.listingId}.json`);
     const listing = existsSync(listingPath) ? readJson(listingPath) : {};
     return {
       score: Number(evaluation.score ?? 0),
@@ -205,27 +235,26 @@ function exportRun(runtimeDataDir: string, runId: string) {
   const wb = xlsx.utils.book_new();
   const ws = xlsx.utils.json_to_sheet(rows);
   xlsx.utils.book_append_sheet(wb, ws, "Evaluations");
-  const outputPath = path.join(exportDir, `${runId}.xlsx`);
-  xlsx.writeFile(wb, outputPath);
-  xlsx.writeFile(wb, path.join(exportDir, "latest.xlsx"));
-  return outputPath;
+  xlsx.writeFile(wb, artifacts.exportPath);
+  xlsx.writeFile(wb, artifacts.latestExportPath);
+  return artifacts.exportPath;
 }
 
-async function spawnEvaluators(api: any, runtimeDataDir: string, params: Json) {
+async function spawnEvaluators(api: any, stateDir: string, params: Json) {
   const runId = String(params.runId);
-  const profilePath = String(params.profilePath || resolvePluginConfig(api).defaultProfilePath);
-  const listingDir = path.join(runtimeDataDir, "search-runs", runId, "listings");
-  const evalDir = path.join(runtimeDataDir, "evaluations", runId);
-  ensureDir(evalDir);
-  const listingFiles = listJson(listingDir).slice(0, Number(params.limit ?? resolvePluginConfig(api).evaluationConcurrency));
+  const profilePath = path.resolve(String(params.profilePath));
+  requireExistingFile(profilePath, "Candidate profile");
+  const artifacts = resolveArtifacts(stateDir, runId);
+  ensureDir(artifacts.evaluationsDir);
+  const listingFiles = listJson(artifacts.listingsDir).slice(0, Number(params.limit ?? resolvePluginConfig(api).evaluationConcurrency));
   const promptPath = path.join(repoRoot(), "prompts", "job-listing-evaluator-subagent-prompt.md");
   const promptTemplate = existsSync(promptPath) ? readFileSync(promptPath, "utf8") : "Evaluate the listing and write one JSON result to outputPath.";
   const modelRef = resolvePluginConfig(api).evaluationModel;
 
   const runs = await Promise.all(listingFiles.map(async (listingPath, idx) => {
     const listing = readJson(listingPath);
-    const outputPath = path.join(evalDir, `${listing.id}.json`);
-    const errorPath = path.join(evalDir, `${listing.id}.error.json`);
+    const outputPath = path.join(artifacts.evaluationsDir, `${listing.id}.json`);
+    const errorPath = path.join(artifacts.evaluationsDir, `${listing.id}.error.json`);
     const sessionKey = `job-search-eval-${slugify(runId).slice(-12)}-${String(idx + 1).padStart(2, "0")}`;
     const message = `${promptTemplate}\n\nInputs:\n- profilePath: ${profilePath}\n- listingPath: ${listingPath}\n- runId: ${runId}\n- outputPath: ${outputPath}\n- errorPath: ${errorPath}\n\nRules:\n- Read profilePath and listingPath.\n- Write exactly one JSON evaluation object to outputPath.\n- If evaluation fails, write a JSON error object to errorPath.\n- Do not rely on stdout for the result.`;
     const req: Json = {
@@ -253,7 +282,7 @@ async function spawnEvaluators(api: any, runtimeDataDir: string, params: Json) {
     ok: existsSync(r.outputPath),
     error: existsSync(r.errorPath) ? readJson(r.errorPath) : null,
   }));
-  return { runId, evaluationsDir: evalDir, results };
+  return { runId, evaluationsDir: artifacts.evaluationsDir, results };
 }
 
 export default definePluginEntry({
@@ -263,42 +292,48 @@ export default definePluginEntry({
   register(api) {
     api.registerTool({
       name: "job_search_prepare_run",
-      description: "Create a new job search run folder and seed search.json for agent-authored retrieval planning.",
+      description: "Create a new job search run under OpenClaw state storage and seed search.json for agent-authored retrieval planning.",
       parameters: Type.Object({
         runId: Type.Optional(Type.String()),
-        profilePath: Type.Optional(Type.String()),
+        profilePath: Type.String(),
         candidateUnderstanding: Type.Optional(Type.Any()),
         queries: Type.Optional(Type.Array(Type.Any())),
       }),
       async execute(_id, params) {
         const cfg = resolvePluginConfig(api);
-        const profilePath = path.resolve(String(params.profilePath || cfg.defaultProfilePath));
+        const profilePath = path.resolve(String(params.profilePath));
+        requireExistingFile(profilePath, "Candidate profile");
         const runId = String(params.runId || `${nowStamp()}-${slugify(path.basename(profilePath, path.extname(profilePath)))}`);
-        const runDir = path.join(cfg.runtimeDataDir, "search-runs", runId);
-        const listingsDir = path.join(runDir, "listings");
-        ensureDir(listingsDir);
-        const searchPath = path.join(runDir, "search.json");
-        writeJson(searchPath, {
+        const artifacts = resolveArtifacts(cfg.stateDir, runId);
+        ensureDir(artifacts.listingsDir);
+        writeJson(artifacts.searchPath, {
           runId,
           profilePath,
           candidateUnderstanding: params.candidateUnderstanding || {},
           queries: params.queries || [],
           status: "draft",
-          artifacts: { searchPath, listingsDir },
+          artifacts: {
+            stateDir: artifacts.stateDir,
+            runDir: artifacts.runDir,
+            searchPath: artifacts.searchPath,
+            listingsDir: artifacts.listingsDir,
+            evaluationsDir: artifacts.evaluationsDir,
+            exportsDir: artifacts.exportsDir,
+          },
         });
-        return { content: [{ type: "text", text: JSON.stringify({ runId, searchPath, listingsDir }) }] };
+        return { content: [{ type: "text", text: JSON.stringify({ runId, searchPath: artifacts.searchPath, listingsDir: artifacts.listingsDir }) }] };
       },
     });
 
     api.registerTool({
       name: "job_search_run_retrieval",
-      description: "Run JobSpy retrieval for the latest or specified run using the authored search.json plan.",
+      description: "Run JobSpy retrieval for the latest or specified state-backed run using the authored search.json plan.",
       parameters: Type.Object({
         runId: Type.Optional(Type.String()),
       }),
       async execute(_id, params) {
         const cfg = resolvePluginConfig(api);
-        const runDir = params.runId ? path.join(cfg.runtimeDataDir, "search-runs", String(params.runId)) : latestRunDir(cfg.runtimeDataDir);
+        const runDir = params.runId ? resolveArtifacts(cfg.stateDir, String(params.runId)).runDir : latestRunDir(cfg.stateDir);
         const result = await runJobSpySearch(runDir);
         return { content: [{ type: "text", text: JSON.stringify(result) }] };
       },
@@ -306,16 +341,16 @@ export default definePluginEntry({
 
     api.registerTool({
       name: "job_search_spawn_evaluators",
-      description: "Spawn concurrent evaluator subagents, one per listing, writing file-based artifacts into runtime-data/evaluations/<runId>/.",
+      description: "Spawn concurrent evaluator subagents, one per listing, writing state-backed artifacts into evaluations/<runId>/.",
       parameters: Type.Object({
         runId: Type.String(),
-        profilePath: Type.Optional(Type.String()),
+        profilePath: Type.String(),
         limit: Type.Optional(Type.Integer({ minimum: 1 })),
         timeoutMs: Type.Optional(Type.Integer({ minimum: 1 })),
       }),
       async execute(_id, params) {
         const cfg = resolvePluginConfig(api);
-        const result = await spawnEvaluators(api, cfg.runtimeDataDir, params as Json);
+        const result = await spawnEvaluators(api, cfg.stateDir, params as Json);
         return { content: [{ type: "text", text: JSON.stringify(result) }] };
       },
     });
@@ -328,17 +363,17 @@ export default definePluginEntry({
       }),
       async execute(_id, params) {
         const cfg = resolvePluginConfig(api);
-        const outputPath = exportRun(cfg.runtimeDataDir, String(params.runId));
+        const outputPath = exportRun(cfg.stateDir, String(params.runId));
         return { content: [{ type: "text", text: JSON.stringify({ runId: params.runId, outputPath }) }] };
       },
     });
 
     api.registerTool({
       name: "job_search_full_run",
-      description: "Prepare, retrieve, evaluate concurrently, and export a full job search run.",
+      description: "Prepare, retrieve, evaluate concurrently, and export a full job search run backed by OpenClaw state storage.",
       parameters: Type.Object({
         runId: Type.Optional(Type.String()),
-        profilePath: Type.Optional(Type.String()),
+        profilePath: Type.String(),
         candidateUnderstanding: Type.Optional(Type.Any()),
         queries: Type.Array(Type.Any()),
         evaluationLimit: Type.Optional(Type.Integer({ minimum: 1 })),
@@ -346,28 +381,34 @@ export default definePluginEntry({
       }),
       async execute(_id, params) {
         const cfg = resolvePluginConfig(api);
-        const profilePath = path.resolve(String(params.profilePath || cfg.defaultProfilePath));
+        const profilePath = path.resolve(String(params.profilePath));
+        requireExistingFile(profilePath, "Candidate profile");
         const runId = String(params.runId || `${nowStamp()}-${slugify(path.basename(profilePath, path.extname(profilePath)))}`);
-        const runDir = path.join(cfg.runtimeDataDir, "search-runs", runId);
-        const listingsDir = path.join(runDir, "listings");
-        ensureDir(listingsDir);
-        const searchPath = path.join(runDir, "search.json");
-        writeJson(searchPath, {
+        const artifacts = resolveArtifacts(cfg.stateDir, runId);
+        ensureDir(artifacts.listingsDir);
+        writeJson(artifacts.searchPath, {
           runId,
           profilePath,
           candidateUnderstanding: params.candidateUnderstanding || {},
           queries: params.queries,
           status: "draft",
-          artifacts: { searchPath, listingsDir },
+          artifacts: {
+            stateDir: artifacts.stateDir,
+            runDir: artifacts.runDir,
+            searchPath: artifacts.searchPath,
+            listingsDir: artifacts.listingsDir,
+            evaluationsDir: artifacts.evaluationsDir,
+            exportsDir: artifacts.exportsDir,
+          },
         });
-        const retrieval = await runJobSpySearch(runDir);
-        const evaluation = await spawnEvaluators(api, cfg.runtimeDataDir, {
+        const retrieval = await runJobSpySearch(artifacts.runDir);
+        const evaluation = await spawnEvaluators(api, cfg.stateDir, {
           runId,
           profilePath,
           limit: params.evaluationLimit ?? cfg.evaluationConcurrency,
           timeoutMs: params.timeoutMs,
         });
-        const exportPath = exportRun(cfg.runtimeDataDir, runId);
+        const exportPath = exportRun(cfg.stateDir, runId);
         return {
           content: [
             {
