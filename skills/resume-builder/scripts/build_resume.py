@@ -222,7 +222,7 @@ def pick_explicit_support(profile, term):
         "Vue3": ["Vue3"],
         "Google Cloud": ["Google Cloud"],
         "Pub/Sub": ["Pub/Sub"],
-        "Functions": ["Functions"],
+        "Functions": ["Cloud Functions", "Google Cloud Functions"],
         "App Engine": ["App Engine"],
         "Firestore": ["Firestore"],
         "Redis": ["Redis"],
@@ -375,7 +375,6 @@ def build_full_cv(profile, job_signals, summary, experience_items):
 
         if section_name == "experience_summary":
             experience_entries = []
-            experience_entries.append({"type": "summary", "text": summary})
             for item in experience_items:
                 experience_entries.append({
                     "type": "role",
@@ -448,7 +447,7 @@ def render_entry(entry):
 
 def build_polished_text(profile, headline, summary, full_cv_sections):
     name = profile["identity"].get("name", "")
-    lines = [name, headline, ""]
+    lines = [name, headline, "", "SUMMARY", summary, ""]
     title_map = {
         "identity": "IDENTITY",
         "target_direction": "TARGET DIRECTION",
