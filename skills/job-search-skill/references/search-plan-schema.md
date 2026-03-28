@@ -24,8 +24,8 @@ Use this file when editing or auditing the retrieval plan.
     "retrievalFilters": {
       "siteNames": ["linkedin"],
       "isRemote": true,
+      "employmentIntent": "junior-fulltime",
       "jobType": "fulltime",
-      "allowedJobTypes": ["internship", "fulltime"],
       "distance": 25,
       "easyApply": false,
       "hoursOld": 720,
@@ -35,6 +35,7 @@ Use this file when editing or auditing the retrieval plan.
   "retrievalFilters": {
     "siteNames": ["linkedin"],
     "isRemote": true,
+    "employmentIntent": "junior-fulltime",
     "jobType": "fulltime",
     "distance": 25,
     "easyApply": false,

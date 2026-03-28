@@ -27,7 +27,7 @@ This skill does **not** own:
 2. Read `<project-root>/config/runtime.json` and use its `pythonPath`.
 3. Read the candidate profile before running anything.
 4. Infer candidate seniority, role family, stack/domain signals, preferred companies, locations, and work mode from the profile itself.
-5. Decide explicit retrieval filters from the profile, not just search text. Use structured filters such as site selection, remote/on-site intent, job type, distance, recency, and company targeting when the backend supports them.
+5. Decide explicit retrieval filters from the profile, not just search text. Use structured filters such as site selection, remote/on-site intent, employment intent, job type, distance, recency, and company targeting when the backend supports them.
 6. Build a small, explicit search plan before retrieval.
 7. Reject obvious mismatches during cleanup, especially:
    - `senior`, `sr`, `lead`, `staff`, `principal`, `manager`, `head`, `director`

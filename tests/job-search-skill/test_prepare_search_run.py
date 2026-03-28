@@ -45,7 +45,7 @@ def test_derive_core_queries_contains_company_targeted_entries():
     assert any(q['kind'] == 'company-targeted' for q in queries)
 
 
-def test_build_candidate_model_adds_agent_decided_retrieval_filters():
+def test_build_candidate_model_defaults_junior_to_fulltime_not_internship():
     profile_text = """
     Junior software engineer with 2 years of experience in Java and React.
     Looking for hybrid or remote roles in Istanbul fintech companies.
@@ -61,5 +61,24 @@ def test_build_candidate_model_adds_agent_decided_retrieval_filters():
     filters = model['retrievalFilters']
     assert filters['siteNames'] == ['linkedin']
     assert filters['isRemote'] is True
-    assert filters['jobType'] == 'internship' or filters['jobType'] == 'fulltime'
+    assert filters['employmentIntent'] == 'junior-fulltime'
+    assert filters['jobType'] == 'fulltime'
     assert filters['distance'] == 25
+
+
+def test_build_candidate_model_detects_internship_intent_explicitly():
+    profile_text = """
+    Computer science student seeking internship opportunities.
+    Interested in backend software engineering roles in Istanbul.
+    """
+    model = mod.build_candidate_model(
+        profile_text,
+        profile_text.splitlines(),
+        desired_roles=['Software Engineer'],
+        target_companies=['Akbank'],
+        preferred_locations=['Istanbul'],
+        work_modes=['hybrid'],
+    )
+    filters = model['retrievalFilters']
+    assert filters['employmentIntent'] == 'internship'
+    assert filters['jobType'] == 'internship'

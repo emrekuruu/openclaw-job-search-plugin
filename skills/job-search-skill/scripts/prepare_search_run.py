@@ -33,10 +33,16 @@ TITLE_AVOID_PATTERNS = ['senior', 'sr', 'lead', 'staff', 'principal', 'manager',
 TECH_TERMS = ['python', 'java', 'spring', 'spring boot', 'react', 'node', 'node.js', 'typescript', 'javascript', 'aws', 'sql', 'postgres', 'docker', 'kubernetes']
 DOMAIN_TERMS = ['fintech', 'banking', 'payments', 'e-commerce', 'healthtech', 'saas', 'ai', 'machine learning']
 WORK_MODE_TERMS = ['remote', 'hybrid', 'on-site', 'onsite', 'on premise']
-SENIORITY_TO_JOB_TYPES = {
-    'junior': ['internship', 'fulltime'],
-    'mid': ['fulltime', 'contract'],
-    'senior': ['fulltime', 'contract'],
+EMPLOYMENT_INTENT_PATTERNS = {
+    'internship': [r'\bintern(ship)?\b', r'\bplacement\b', r'\bco-?op\b', r'\bstudent\b'],
+    'junior-fulltime': [r'\bjunior\b', r'\bentry[- ]level\b', r'\bgraduate role\b', r'\bnew grad\b'],
+    'contract': [r'\bcontract\b', r'\bfreelance\b', r'\bconsult(ing|ant)?\b'],
+}
+EMPLOYMENT_INTENT_TO_JOB_TYPE = {
+    'internship': 'internship',
+    'junior-fulltime': 'fulltime',
+    'fulltime': 'fulltime',
+    'contract': 'contract',
 }
 SENIORITY_TO_MAX_DISTANCE = {
     'junior': 25,
@@ -193,6 +199,17 @@ def guess_locations(preferred_locations, text: str):
     return unique_preserve(matches)
 
 
+def infer_employment_intent(text: str, seniority: str):
+    lowered = text.lower()
+    if any(re.search(pattern, lowered) for pattern in EMPLOYMENT_INTENT_PATTERNS['internship']):
+        return 'internship'
+    if any(re.search(pattern, lowered) for pattern in EMPLOYMENT_INTENT_PATTERNS['contract']):
+        return 'contract'
+    if seniority == 'junior':
+        return 'junior-fulltime'
+    return 'contract' if seniority == 'senior' and 'contract' in lowered else 'fulltime'
+
+
 def derive_core_queries(role_families, tech_focus, preferred_companies, locations, seniority):
     if not role_families:
         raise SystemExit('Could not infer a target role family from the candidate profile. Refine the profile before retrieval.')
@@ -259,11 +276,12 @@ def build_candidate_model(profile_text: str, lines, desired_roles, target_compan
     domain_focus = collect_terms(profile_text, DOMAIN_TERMS)
     preferred_companies = unique_preserve(target_companies)
     max_accepted_experience_years = 3 if seniority == 'junior' else 5 if seniority == 'mid' else 8
+    employment_intent = infer_employment_intent(profile_text, seniority)
     retrieval_filters = {
         'siteNames': ['linkedin'],
         'isRemote': 'remote' in [mode.lower() for mode in work_modes],
-        'jobType': SENIORITY_TO_JOB_TYPES.get(seniority, ['fulltime'])[0],
-        'allowedJobTypes': SENIORITY_TO_JOB_TYPES.get(seniority, ['fulltime']),
+        'jobType': EMPLOYMENT_INTENT_TO_JOB_TYPE.get(employment_intent, 'fulltime'),
+        'employmentIntent': employment_intent,
         'distance': SENIORITY_TO_MAX_DISTANCE.get(seniority, 50),
         'easyApply': False,
         'hoursOld': 24 * 30,
