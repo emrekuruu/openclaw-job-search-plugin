@@ -54,6 +54,9 @@ job-search-bot/
 │   ├── runtime.json
 │   └── search-defaults.json
 ├── prompts/
+├── assets/
+│   └── profiles/
+│       └── sample-software-engineer-profile.md
 ├── runtime-data/
 │   └── search-runs/
 │       └── <runId>/
@@ -89,6 +92,8 @@ It should make these decisions obvious:
 - reason for each filter
 
 ### Employment intent rule
+
+The default profile path now lives in `assets/profiles/` so it is stable repo content rather than runtime output.
 
 Default to **full-time** unless the profile explicitly signals:
 
@@ -142,11 +147,11 @@ export JOB_SEARCH_BOT_ROOT="$PWD"
 
 Expected flow:
 
-1. the agent reads the candidate profile
+1. the agent reads the stable repo-owned profile from `assets/profiles/` (or another explicit profile path)
 2. the agent writes `runtime-data/search-runs/<runId>/search.json`
 3. the script reads the latest `search.json`
 4. the script runs JobSpy directly
-5. the script writes one JSON file per listing into `listings/`
+5. the script writes one JSON file per listing into `listings/` using deterministic collision-safe IDs
 6. the script updates `search.json` with execution details
 
 ---
@@ -181,3 +186,4 @@ Owns post-retrieval evaluation only:
 - cleanup remains intentionally lightweight
 - summary generation is optional
 - evaluation remains a separate post-retrieval step
+- Excel export reads the latest `runtime-data/final-results/*.json` artifact and writes `runtime-data/exports/*.xlsx`

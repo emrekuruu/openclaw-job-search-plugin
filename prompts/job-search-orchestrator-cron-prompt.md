@@ -9,7 +9,7 @@ Environment:
 Your job is to run the minimal retrieval model.
 
 Step 1 — Read the candidate profile
-Read the candidate profile from the runtime-configured default profile unless the caller provides another profile path.
+Read the candidate profile from the runtime-configured stable repo-owned default profile unless the caller provides another profile path.
 
 Use `config/runtime.json` to resolve:
 - `defaultProfile`
@@ -60,7 +60,7 @@ From the project root, use the runtime-configured Python interpreter and run:
 - `skills/job-search-skill/scripts/run_jobspy_search.py`
 
 That script is the retrieval backend.
-It reads the latest `search.json`, runs JobSpy directly, writes one JSON file per listing into `listings/`, and updates `search.json` with execution details.
+It reads the latest `search.json`, runs JobSpy directly, writes one JSON file per listing into `listings/` using deterministic collision-safe filenames, and updates `search.json` with execution details.
 
 Fail clearly if the script fails.
 

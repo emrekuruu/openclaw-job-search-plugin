@@ -10,7 +10,7 @@ Keep this simple.
 ## What the agent does
 
 The agent should:
-- read the candidate profile
+- read the stable repo-owned candidate profile
 - understand the candidate from the profile itself
 - decide the queries
 - decide the filters for each query
@@ -92,7 +92,7 @@ Use:
 The script should:
 - read the latest `search.json`
 - run the agent-authored queries with JobSpy
-- write one JSON file per listing into `listings/`
+- write one JSON file per listing into `listings/` with deterministic collision-safe filenames
 - update `search.json` with execution details
 
 ## Rules

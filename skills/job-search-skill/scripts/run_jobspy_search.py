@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import hashlib
 import json
 import os
 from datetime import datetime
@@ -116,6 +117,29 @@ def slugify(text: str) -> str:
     return ''.join(ch if ch.isalnum() or ch == '-' else '-' for ch in text).strip('-')
 
 
+def listing_identity(raw: dict, query_entry: dict) -> str:
+    url = raw.get('url') or raw.get('job_url') or raw.get('job_url_direct') or ''
+    if url:
+        return url.strip().lower()
+
+    parts = [
+        raw.get('company') or raw.get('company_name') or '',
+        raw.get('title') or raw.get('job_title') or '',
+        raw.get('location') or raw.get('job_location') or '',
+        query_entry.get('query') or '',
+    ]
+    return ' :: '.join(part.strip().lower() for part in parts)
+
+
+def build_listing_id(raw: dict, run_id: str, query_entry: dict) -> str:
+    title = raw.get('title') or raw.get('job_title') or 'Unknown Title'
+    company = raw.get('company') or raw.get('company_name') or 'Unknown Company'
+    identity = listing_identity(raw, query_entry)
+    digest = hashlib.sha1(identity.encode('utf-8')).hexdigest()[:10]
+    base = slugify(f'{run_id}-{company}-{title}')
+    return f'{base}-{digest}'
+
+
 def normalize_listing(raw: dict, run_id: str, query_entry: dict) -> dict:
     title = raw.get('title') or raw.get('job_title') or 'Unknown Title'
     company = raw.get('company') or raw.get('company_name') or 'Unknown Company'
@@ -123,7 +147,7 @@ def normalize_listing(raw: dict, run_id: str, query_entry: dict) -> dict:
     url = raw.get('url') or raw.get('job_url') or raw.get('job_url_direct') or ''
     source = raw.get('source') or raw.get('site') or raw.get('site_name') or 'unknown'
     summary = raw.get('summary') or raw.get('description') or raw.get('job_summary') or ''
-    listing_id = slugify(f'{run_id}-{company}-{title}')
+    listing_id = build_listing_id(raw, run_id, query_entry)
     return {
         'id': listing_id,
         'runId': run_id,
@@ -176,11 +200,11 @@ def main():
             'resultCount': len(results),
         })
         for raw in results:
-            listing = normalize_listing(raw, run_id, query_entry)
-            dedup_key = (listing.get('url') or f"{listing['company']}::{listing['title']}").lower()
-            if dedup_key in seen:
+            identity = listing_identity(raw, query_entry)
+            if identity in seen:
                 continue
-            seen.add(dedup_key)
+            seen.add(identity)
+            listing = normalize_listing(raw, run_id, query_entry)
             listing_path = listings_dir / f"{listing['id']}.json"
             listing_path.write_text(json.dumps(listing, indent=2) + '\n')
             listing_count += 1
