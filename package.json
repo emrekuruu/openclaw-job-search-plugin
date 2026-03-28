@@ -12,5 +12,9 @@
     "@sinclair/typebox": "^0.34.41",
     "openclaw": "*",
     "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "typescript": "^6.0.2"
   }
 }

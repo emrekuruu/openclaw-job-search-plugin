@@ -228,6 +228,7 @@ export default definePluginEntry({
   register(api) {
     api.registerTool({
       name: "job_search_prepare_run",
+      label: "Prepare job search run",
       description: "Create a new job search run under OpenClaw state storage and seed search.json for agent-authored retrieval planning.",
       parameters: Type.Object({
         runId: Type.Optional(Type.String()),
@@ -264,6 +265,7 @@ export default definePluginEntry({
 
     api.registerTool({
       name: "job_search_run_retrieval",
+      label: "Run job retrieval",
       description: "Run JobSpy retrieval through the job-search skill's Python runner for the latest or specified state-backed run.",
       parameters: Type.Object({
         runId: Type.Optional(Type.String()),
@@ -280,6 +282,7 @@ export default definePluginEntry({
 
     api.registerTool({
       name: "job_search_spawn_evaluators",
+      label: "Spawn evaluator subagents",
       description: "Spawn concurrent evaluator subagents, one per listing, writing state-backed artifacts into evaluations/<runId>/.",
       parameters: Type.Object({
         runId: Type.String(),
@@ -296,6 +299,7 @@ export default definePluginEntry({
 
     api.registerTool({
       name: "job_search_export_run",
+      label: "Export job search run",
       description: "Aggregate evaluation artifacts for a run and export them into an Excel workbook sorted by score.",
       parameters: Type.Object({
         runId: Type.String(),
@@ -310,6 +314,7 @@ export default definePluginEntry({
 
     api.registerTool({
       name: "job_search_full_run",
+      label: "Run full job search workflow",
       description: "Prepare, retrieve, evaluate concurrently, and export a full job search run backed by OpenClaw state storage.",
       parameters: Type.Object({
         runId: Type.Optional(Type.String()),
