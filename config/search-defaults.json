@@ -3,8 +3,11 @@
   "siteNames": ["linkedin"],
   "resultsWanted": 15,
   "freshnessHours": 720,
+  "hoursOld": 720,
   "linkedinFetchDescription": true,
   "easyApply": false,
   "defaultCountryIndeed": "turkey",
-  "verbose": 1
+  "verbose": 1,
+  "distance": 50,
+  "jobType": "fulltime"
 }

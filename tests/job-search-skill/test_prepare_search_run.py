@@ -43,3 +43,23 @@ def test_derive_core_queries_contains_company_targeted_entries():
     )
     assert queries
     assert any(q['kind'] == 'company-targeted' for q in queries)
+
+
+def test_build_candidate_model_adds_agent_decided_retrieval_filters():
+    profile_text = """
+    Junior software engineer with 2 years of experience in Java and React.
+    Looking for hybrid or remote roles in Istanbul fintech companies.
+    """
+    model = mod.build_candidate_model(
+        profile_text,
+        profile_text.splitlines(),
+        desired_roles=['Software Engineer'],
+        target_companies=['Akbank'],
+        preferred_locations=['Istanbul'],
+        work_modes=['hybrid', 'remote'],
+    )
+    filters = model['retrievalFilters']
+    assert filters['siteNames'] == ['linkedin']
+    assert filters['isRemote'] is True
+    assert filters['jobType'] == 'internship' or filters['jobType'] == 'fulltime'
+    assert filters['distance'] == 25

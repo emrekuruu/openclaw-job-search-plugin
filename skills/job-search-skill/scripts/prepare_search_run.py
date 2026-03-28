@@ -33,6 +33,16 @@ TITLE_AVOID_PATTERNS = ['senior', 'sr', 'lead', 'staff', 'principal', 'manager',
 TECH_TERMS = ['python', 'java', 'spring', 'spring boot', 'react', 'node', 'node.js', 'typescript', 'javascript', 'aws', 'sql', 'postgres', 'docker', 'kubernetes']
 DOMAIN_TERMS = ['fintech', 'banking', 'payments', 'e-commerce', 'healthtech', 'saas', 'ai', 'machine learning']
 WORK_MODE_TERMS = ['remote', 'hybrid', 'on-site', 'onsite', 'on premise']
+SENIORITY_TO_JOB_TYPES = {
+    'junior': ['internship', 'fulltime'],
+    'mid': ['fulltime', 'contract'],
+    'senior': ['fulltime', 'contract'],
+}
+SENIORITY_TO_MAX_DISTANCE = {
+    'junior': 25,
+    'mid': 40,
+    'senior': 50,
+}
 
 
 def resolve_project_root() -> Path:
@@ -249,6 +259,16 @@ def build_candidate_model(profile_text: str, lines, desired_roles, target_compan
     domain_focus = collect_terms(profile_text, DOMAIN_TERMS)
     preferred_companies = unique_preserve(target_companies)
     max_accepted_experience_years = 3 if seniority == 'junior' else 5 if seniority == 'mid' else 8
+    retrieval_filters = {
+        'siteNames': ['linkedin'],
+        'isRemote': 'remote' in [mode.lower() for mode in work_modes],
+        'jobType': SENIORITY_TO_JOB_TYPES.get(seniority, ['fulltime'])[0],
+        'allowedJobTypes': SENIORITY_TO_JOB_TYPES.get(seniority, ['fulltime']),
+        'distance': SENIORITY_TO_MAX_DISTANCE.get(seniority, 50),
+        'easyApply': False,
+        'hoursOld': 24 * 30,
+        'linkedinFetchDescription': True,
+    }
 
     return {
         'seniority': seniority,
@@ -263,6 +283,7 @@ def build_candidate_model(profile_text: str, lines, desired_roles, target_compan
         'avoidTitlePatterns': TITLE_AVOID_PATTERNS,
         'avoidRoleFamilies': infer_avoid_role_families(profile_text, role_family),
         'maxAcceptedExperienceYears': max_accepted_experience_years,
+        'retrievalFilters': retrieval_filters,
     }
 
 
@@ -311,6 +332,7 @@ def main():
         'resultCount': 0,
         'rejectedCount': 0,
         'candidateModel': candidate_model,
+        'retrievalFilters': candidate_model['retrievalFilters'],
         'queries': queries,
         'qualityRules': {
             'preferPrecisionOverRecall': True,

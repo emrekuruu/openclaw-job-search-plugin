@@ -55,27 +55,46 @@ def load_search_config(runtime):
     return json.loads(config_path.read_text())
 
 
+def merge_retrieval_filters(run, config):
+    filters = {}
+    filters.update(config or {})
+    filters.update(run.get('retrievalFilters') or {})
+    return filters
+
+
 def build_requests(run, config):
     queries = run.get('queries') or []
     if not queries:
         raise SystemExit('Search run contains no explicit queries. Run prepare_search_run.py again after fixing profile inference.')
 
+    filters = merge_retrieval_filters(run, config)
     work_modes = set(v.lower() for v in run.get('workModes', []))
-    max_results = (run.get('qualityRules') or {}).get('maxResultsPerQuery') or config['resultsWanted']
+    max_results = (run.get('qualityRules') or {}).get('maxResultsPerQuery') or filters['resultsWanted']
     requests = []
     for query in queries[: (run.get('qualityRules') or {}).get('maxQueries', len(queries))]:
-        requests.append({
+        request = {
             'search_term': query['searchTerm'],
             'location': query['location'],
-            'site_name': config['siteNames'],
-            'results_wanted': min(max_results, config['resultsWanted']),
-            'hours_old': config['freshnessHours'],
-            'is_remote': 'remote' in work_modes,
-            'easy_apply': config['easyApply'],
-            'linkedin_fetch_description': config['linkedinFetchDescription'],
-            'country_indeed': config['defaultCountryIndeed'],
-            'verbose': config['verbose'],
-        })
+            'site_name': filters['siteNames'],
+            'results_wanted': min(max_results, filters['resultsWanted']),
+            'hours_old': filters.get('hoursOld', filters.get('freshnessHours')),
+            'is_remote': filters.get('isRemote', 'remote' in work_modes),
+            'easy_apply': filters['easyApply'],
+            'linkedin_fetch_description': filters['linkedinFetchDescription'],
+            'country_indeed': filters['defaultCountryIndeed'],
+            'verbose': filters['verbose'],
+        }
+        if filters.get('jobType'):
+            request['job_type'] = filters['jobType']
+        if filters.get('distance') is not None:
+            request['distance'] = filters['distance']
+        if filters.get('linkedinCompanyIds'):
+            request['linkedin_company_ids'] = filters['linkedinCompanyIds']
+        if filters.get('offset'):
+            request['offset'] = filters['offset']
+        if filters.get('userAgent'):
+            request['user_agent'] = filters['userAgent']
+        requests.append(request)
     return requests
 
 

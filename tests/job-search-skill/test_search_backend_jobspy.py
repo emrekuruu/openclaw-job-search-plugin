@@ -16,21 +16,34 @@ def test_build_requests_creates_expected_shape():
         ],
         'qualityRules': {'maxResultsPerQuery': 8},
         'workModes': ['hybrid'],
+        'retrievalFilters': {
+            'siteNames': ['linkedin'],
+            'jobType': 'fulltime',
+            'distance': 25,
+            'isRemote': False,
+            'hoursOld': 168,
+        },
     }
     config = {
         'siteNames': ['linkedin'],
         'resultsWanted': 12,
         'freshnessHours': 168,
+        'hoursOld': 168,
         'easyApply': False,
         'linkedinFetchDescription': True,
         'defaultCountryIndeed': 'turkey',
         'verbose': 1,
+        'distance': 50,
+        'jobType': 'contract',
     }
     requests = mod.build_requests(run, config)
     assert requests
     assert all('search_term' in r for r in requests)
     assert all(r['site_name'] == ['linkedin'] for r in requests)
     assert requests[0]['results_wanted'] == 8
+    assert requests[0]['job_type'] == 'fulltime'
+    assert requests[0]['distance'] == 25
+    assert requests[0]['hours_old'] == 168
 
 
 def test_load_latest_run_requires_files(tmp_path):

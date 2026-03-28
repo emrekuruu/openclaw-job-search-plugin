@@ -20,7 +20,26 @@ Use this file when editing or auditing the retrieval plan.
     "workModes": ["hybrid", "remote"],
     "avoidTitlePatterns": ["senior", "lead", "staff", "principal", "manager"],
     "avoidRoleFamilies": ["data scientist", "qa engineer", "designer"],
-    "maxAcceptedExperienceYears": 3
+    "maxAcceptedExperienceYears": 3,
+    "retrievalFilters": {
+      "siteNames": ["linkedin"],
+      "isRemote": true,
+      "jobType": "fulltime",
+      "allowedJobTypes": ["internship", "fulltime"],
+      "distance": 25,
+      "easyApply": false,
+      "hoursOld": 720,
+      "linkedinFetchDescription": true
+    }
+  },
+  "retrievalFilters": {
+    "siteNames": ["linkedin"],
+    "isRemote": true,
+    "jobType": "fulltime",
+    "distance": 25,
+    "easyApply": false,
+    "hoursOld": 720,
+    "linkedinFetchDescription": true
   },
   "queries": [
     {
@@ -57,10 +76,11 @@ Use this file when editing or auditing the retrieval plan.
 ## Planning rules
 
 1. Infer from the profile; do not depend on static candidate filters in config.
-2. Keep query count low.
-3. Use company-targeted queries only for explicitly preferred companies.
-4. Include adjacent role titles only if they are genuinely the same role family.
-5. If role family or likely seniority cannot be inferred with enough confidence, fail clearly instead of guessing.
+2. Let the agent decide structured retrieval filters from the profile, not only search text.
+3. Keep query count low.
+4. Use company-targeted queries only for explicitly preferred companies.
+5. Include adjacent role titles only if they are genuinely the same role family.
+6. If role family or likely seniority cannot be inferred with enough confidence, fail clearly instead of guessing.
 
 ## Mandatory reject patterns
 
