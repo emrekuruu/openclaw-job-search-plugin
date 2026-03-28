@@ -76,19 +76,22 @@ job-search-bot/
 
 ## Retrieval architecture
 
-The retrieval flow is now intentionally **per-run and inspectable**.
+The retrieval flow should stay intentionally simple.
 
-Each run folder under `runtime-data/search-runs/<runId>/` should make these decisions obvious:
+Each run folder under `runtime-data/search-runs/<runId>/` should contain:
 
-- candidate model / inference
-- employment intent
-- retrieval filters
+- `search.json`
+- `listings/*.json`
+- `summary.md`
+
+`search.json` is the important artifact.
+It should make these decisions obvious:
+
+- candidate understanding
 - query list
 - reason for each query
-- raw backend results grouped by query
-- kept normalized jobs
-- rejected jobs and their reject reasons
-- per-listing JSON artifacts for later evaluation
+- filters per query
+- reason for each filter
 
 ### Employment intent rule
 
@@ -102,11 +105,6 @@ Internship experience in the background does **not** automatically mean the cand
 ### Scoring rule
 
 The evaluation layer should use a **single 0-100 score system everywhere**.
-
-- `score` = final 0-100 fit score
-- optional dimension breakdowns should also be 0-100
-
-No mixed 0-5 vs 0-100 scoring.
 
 ---
 

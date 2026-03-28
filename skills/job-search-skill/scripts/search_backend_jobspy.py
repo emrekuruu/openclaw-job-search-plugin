@@ -6,10 +6,29 @@ from pathlib import Path
 from jobspy import scrape_jobs
 
 
+ALLOWED_REQUEST_FIELDS = {
+    'site_name',
+    'search_term',
+    'location',
+    'results_wanted',
+    'hours_old',
+    'is_remote',
+    'easy_apply',
+    'linkedin_fetch_description',
+    'country_indeed',
+    'verbose',
+    'job_type',
+    'distance',
+    'linkedin_company_ids',
+    'offset',
+    'user_agent',
+}
+
+
 def resolve_project_root() -> Path:
     env_root = os.environ.get('JOB_SEARCH_BOT_ROOT')
     if not env_root:
-        raise SystemExit('JOB_SEARCH_BOT_ROOT is not set. This skill requires an explicit project root.')
+        raise SystemExit('JOB_SEARCH_BOT_ROOT is not set.')
     root = Path(env_root).expanduser().resolve()
     if not root.exists():
         raise SystemExit(f'Configured JOB_SEARCH_BOT_ROOT does not exist: {root}')
@@ -32,78 +51,46 @@ def load_runtime_config(project_root: Path):
     if not config_path.exists():
         raise SystemExit(f'Runtime config not found: {config_path}')
     data = json.loads(config_path.read_text())
-    data['projectRoot'] = str(project_root)
-    data['pythonPath'] = str(resolve_runtime_value(project_root, data['pythonPath']))
     data['outputBase'] = str(resolve_runtime_value(project_root, data['outputBase']))
-    data['defaultProfile'] = str(resolve_runtime_value(project_root, data['defaultProfile']))
-    data['searchDefaultsPath'] = str(resolve_runtime_value(project_root, data['searchDefaultsPath']))
     return data
 
 
-def load_latest_run(runs_dir: Path):
+def load_latest_search(output_base: Path):
+    runs_dir = output_base / 'search-runs'
     run_dirs = sorted(path for path in runs_dir.iterdir() if path.is_dir()) if runs_dir.exists() else []
-    if run_dirs:
-        latest = run_dirs[-1]
-        plan_path = latest / 'plan.json'
-        if not plan_path.exists():
-            raise SystemExit(f'Latest run directory is missing plan.json: {latest}')
-        return json.loads(plan_path.read_text())
-
-    legacy_run_files = sorted(runs_dir.glob('*.json')) if runs_dir.exists() else []
-    if legacy_run_files:
-        return json.loads(legacy_run_files[-1].read_text())
-
-    raise SystemExit('No search runs found. Run prepare_search_run.py first.')
+    if not run_dirs:
+        raise SystemExit('No search runs found. Run prepare_search_run.py first.')
+    latest = run_dirs[-1]
+    search_path = latest / 'search.json'
+    if not search_path.exists():
+        raise SystemExit(f'Missing search.json in latest run: {latest}')
+    search = json.loads(search_path.read_text())
+    return latest, search_path, search
 
 
-def load_search_config(runtime):
-    config_path = Path(runtime['searchDefaultsPath'])
-    if not config_path.exists():
-        raise SystemExit(f'Search defaults config not found: {config_path}')
-    return json.loads(config_path.read_text())
-
-
-def merge_retrieval_filters(run, config):
-    filters = {}
-    filters.update(config or {})
-    filters.update(run.get('retrievalFilters') or {})
-    return filters
-
-
-def build_requests(run, config):
-    queries = run.get('queries') or []
-    if not queries:
-        raise SystemExit('Search run contains no explicit queries. Run prepare_search_run.py again after fixing profile inference.')
-
-    filters = merge_retrieval_filters(run, config)
-    work_modes = set(v.lower() for v in run.get('workModes', []))
-    max_results = (run.get('qualityRules') or {}).get('maxResultsPerQuery') or filters['resultsWanted']
-    requests = []
-    for query in queries[: (run.get('qualityRules') or {}).get('maxQueries', len(queries))]:
-        request = {
-            'search_term': query['searchTerm'],
-            'location': query['location'],
-            'site_name': filters['siteNames'],
-            'results_wanted': min(max_results, filters['resultsWanted']),
-            'hours_old': filters.get('hoursOld', filters.get('freshnessHours')),
-            'is_remote': filters.get('isRemote', 'remote' in work_modes),
-            'easy_apply': filters['easyApply'],
-            'linkedin_fetch_description': filters['linkedinFetchDescription'],
-            'country_indeed': filters['defaultCountryIndeed'],
-            'verbose': filters['verbose'],
-        }
-        if filters.get('jobType'):
-            request['job_type'] = filters['jobType']
-        if filters.get('distance') is not None:
-            request['distance'] = filters['distance']
-        if filters.get('linkedinCompanyIds'):
-            request['linkedin_company_ids'] = filters['linkedinCompanyIds']
-        if filters.get('offset'):
-            request['offset'] = filters['offset']
-        if filters.get('userAgent'):
-            request['user_agent'] = filters['userAgent']
-        requests.append(request)
-    return requests
+def normalize_request(query, defaults):
+    filters = query.get('filters') or {}
+    request = {
+        'site_name': filters.get('site_name') or filters.get('siteNames') or defaults.get('siteNames'),
+        'search_term': query.get('query'),
+        'location': filters.get('location') or query.get('location'),
+        'results_wanted': filters.get('results_wanted') or defaults.get('resultsWanted', 10),
+        'hours_old': filters.get('hours_old') or defaults.get('hoursOld') or defaults.get('freshnessHours', 24 * 30),
+        'is_remote': filters.get('is_remote', False),
+        'easy_apply': filters.get('easy_apply', defaults.get('easyApply', False)),
+        'linkedin_fetch_description': filters.get('linkedin_fetch_description', defaults.get('linkedinFetchDescription', True)),
+        'country_indeed': filters.get('country_indeed', defaults.get('defaultCountryIndeed', 'turkey')),
+        'verbose': filters.get('verbose', defaults.get('verbose', 1)),
+        'job_type': filters.get('job_type') or filters.get('jobType') or defaults.get('jobType'),
+        'distance': filters.get('distance', defaults.get('distance')),
+    }
+    request = {key: value for key, value in request.items() if value is not None}
+    unknown_keys = sorted(set(request) - ALLOWED_REQUEST_FIELDS)
+    if unknown_keys:
+        raise SystemExit(f'Unsupported JobSpy request fields: {unknown_keys}')
+    if not request.get('search_term'):
+        raise SystemExit('Each query in search.json must include a non-empty "query" field.')
+    return request
 
 
 def dataframe_to_records(df):
@@ -112,44 +99,34 @@ def dataframe_to_records(df):
     return json.loads(df.to_json(orient='records', date_format='iso'))
 
 
-def live_execute(run, requests):
-    payload = []
-    failures = []
-    queries = run.get('queries') or []
-    for index, request in enumerate(requests):
-        query = queries[index] if index < len(queries) else {}
-        try:
-            df = scrape_jobs(**request)
-            payload.append({
-                'query': query,
-                'request': request,
-                'mode': 'live',
-                'results': dataframe_to_records(df),
-            })
-        except Exception as e:
-            failures.append({'request': request, 'error': repr(e)})
-            payload.append({
-                'query': query,
-                'request': request,
-                'mode': 'error',
-                'error': repr(e),
-                'results': [],
-            })
-
-    if not any(entry.get('mode') == 'live' and entry.get('results') for entry in payload):
-        raise SystemExit(f'Live job search failed or returned no results for all requests: {failures}')
-
-    return payload, failures
+def build_listing_id(run_id: str, company: str, title: str) -> str:
+    raw = f'{run_id}-{company}-{title}'.lower().replace('/', '-').replace(' ', '-')
+    return ''.join(ch if ch.isalnum() or ch == '-' else '-' for ch in raw)
 
 
-def resolve_artifact_paths(run, output_base: Path):
-    artifacts = run.get('artifacts') or {}
-    run_id = run['runId']
-    run_dir = Path(artifacts.get('runDir') or (output_base / 'search-runs' / run_id))
+def normalize_listing(raw, run_id, query_entry):
+    title = raw.get('title') or raw.get('job_title') or 'Unknown Title'
+    company = raw.get('company') or raw.get('company_name') or 'Unknown Company'
+    location = raw.get('location') or raw.get('job_location') or 'Unknown Location'
+    url = raw.get('url') or raw.get('job_url') or raw.get('job_url_direct') or ''
+    source = raw.get('source') or raw.get('site') or raw.get('site_name') or 'unknown'
+    summary = raw.get('summary') or raw.get('description') or raw.get('job_summary') or ''
+    listing_id = build_listing_id(run_id, company, title)
     return {
-        'runDir': run_dir,
-        'planPath': Path(artifacts.get('planPath') or (run_dir / 'plan.json')),
-        'rawResultsPath': Path(artifacts.get('rawResultsPath') or (run_dir / 'raw-results.json')),
+        'id': listing_id,
+        'title': title,
+        'company': company,
+        'location': location,
+        'workMode': raw.get('workMode') or ('remote' if raw.get('is_remote') else None),
+        'source': source,
+        'url': url,
+        'postedDate': raw.get('postedDate') or raw.get('date_posted'),
+        'salary': raw.get('salary') or raw.get('min_amount'),
+        'summary': summary,
+        'runId': run_id,
+        'query': query_entry.get('query'),
+        'queryReasoning': query_entry.get('reasoning'),
+        'filters': query_entry.get('filters', {}),
     }
 
 
@@ -157,29 +134,51 @@ def main():
     project_root = resolve_project_root()
     runtime = load_runtime_config(project_root)
     output_base = Path(runtime['outputBase'])
-    runs_dir = output_base / 'search-runs'
+    defaults = json.loads(Path(resolve_runtime_value(project_root, runtime['searchDefaultsPath'])).read_text())
 
-    run = load_latest_run(runs_dir)
-    config = load_search_config(runtime)
-    requests = build_requests(run, config)
-    raw_results, failures = live_execute(run, requests)
-    artifact_paths = resolve_artifact_paths(run, output_base)
+    run_dir, search_path, search = load_latest_search(output_base)
+    queries = search.get('queries') or []
+    if not queries:
+        raise SystemExit('search.json has no queries. The agent must author queries before retrieval.')
 
-    raw_payload = {
-        'runId': run['runId'],
-        'backend': 'jobspy-project-adapter',
-        'mode': 'live',
-        'candidateModel': run.get('candidateModel', {}),
-        'retrievalFilters': run.get('retrievalFilters', {}),
-        'queries': run.get('queries', []),
-        'requests': requests,
-        'rawResults': raw_results,
-        'failures': failures,
+    listings_dir = run_dir / 'listings'
+    listings_dir.mkdir(parents=True, exist_ok=True)
+
+    executed_queries = []
+    listings = []
+    seen = set()
+
+    for query_entry in queries:
+        request = normalize_request(query_entry, defaults)
+        df = scrape_jobs(**request)
+        results = dataframe_to_records(df)
+        executed_queries.append({
+            'query': query_entry.get('query'),
+            'reasoning': query_entry.get('reasoning'),
+            'filters': query_entry.get('filters', {}),
+            'request': request,
+            'resultCount': len(results),
+        })
+        for raw in results:
+            listing = normalize_listing(raw, search['runId'], query_entry)
+            dedup_key = (listing.get('url') or f"{listing['company']}::{listing['title']}").lower()
+            if dedup_key in seen:
+                continue
+            seen.add(dedup_key)
+            listings.append(listing)
+
+    for listing in listings:
+        (listings_dir / f"{listing['id']}.json").write_text(json.dumps(listing, indent=2) + '\n')
+
+    search['status'] = 'completed'
+    search['executedQueries'] = executed_queries
+    search['listingCount'] = len(listings)
+    search['artifacts'] = {
+        'searchPath': str(search_path),
+        'listingsDir': str(listings_dir),
     }
-
-    artifact_paths['runDir'].mkdir(parents=True, exist_ok=True)
-    artifact_paths['rawResultsPath'].write_text(json.dumps(raw_payload, indent=2) + '\n')
-    print(artifact_paths['rawResultsPath'])
+    search_path.write_text(json.dumps(search, indent=2) + '\n')
+    print(search_path)
 
 
 if __name__ == '__main__':
