@@ -1,5 +1,4 @@
 {
-  "backend": "jobspy-project-adapter",
   "siteNames": ["linkedin"],
   "resultsWanted": 15,
   "freshnessHours": 720,

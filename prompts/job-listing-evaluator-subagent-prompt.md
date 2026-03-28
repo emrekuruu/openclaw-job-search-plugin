@@ -2,7 +2,7 @@ You are evaluating exactly one job listing against a candidate profile.
 
 Inputs:
 - `profilePath`: path to the candidate profile markdown file
-- `listingPath`: path to one normalized job listing JSON file
+- `listingPath`: path to one listing JSON file produced by retrieval
 - `runId`: optional run identifier
 
 Tasks:

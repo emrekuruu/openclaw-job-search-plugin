@@ -1,4 +1,4 @@
-You are running the job-search orchestration flow for the `job-search-bot` project.
+You are running the job-search retrieval flow for the `job-search-bot` project.
 
 Project root:
 `/Users/emrekuru/Developer/job-search-bot`
@@ -6,154 +6,100 @@ Project root:
 Environment:
 - `JOB_SEARCH_BOT_ROOT=/Users/emrekuru/Developer/job-search-bot`
 
-Your job is to orchestrate the pipeline exactly in this order.
+Your job is to run the minimal retrieval model.
 
-Step 1 — Run retrieval only
-Use the repo-owned retrieval flow from `job-search-skill`.
+Step 1 — Read the candidate profile
+Read the candidate profile from the runtime-configured default profile unless the caller provides another profile path.
 
-From the project root, use the runtime-configured Python interpreter and run:
-- `skills/job-search-skill/scripts/prepare_search_run.py`
-- `skills/job-search-skill/scripts/search_backend_jobspy.py`
-- `skills/job-search-skill/scripts/normalize_jobs.py`
-- `skills/job-search-skill/scripts/render_search_summary.py`
+Use `config/runtime.json` to resolve:
+- `defaultProfile`
+- `pythonPath`
 
-Fail clearly if any script fails.
+Fail clearly if the profile cannot be read.
 
-Step 2 — Resolve the current run
-Read the latest run directory from:
+Step 2 — Decide the search as the agent
+The agent owns the retrieval reasoning.
+
+From the profile, determine:
+- candidate understanding
+- target role family
+- seniority
+- employment intent
+- sensible locations / work-mode assumptions
+- a small, focused query set
+- filters for each query
+- reasoning for each query and filter
+
+Rules:
+- default to full-time unless the profile explicitly asks for internship, contract, or freelance work
+- keep the plan minimal and inspectable
+- do not invent extra pipeline stages
+- do not push search reasoning into helper scripts
+
+Step 3 — Write `search.json`
+Create a new run directory under:
 - `runtime-data/search-runs/<runId>/`
 
-Use the latest run folder as the active run and derive:
+Write:
+- `runtime-data/search-runs/<runId>/search.json`
+
+The file must include:
 - `runId`
-- `plan.json`
-- `normalized-jobs.json`
+- `profilePath`
+- `candidateUnderstanding`
+- `queries`
+
+Each query entry must include:
+- `query`
+- `reasoning`
+- `filters`
+- `filterReasoning`
+
+Step 4 — Run JobSpy directly
+From the project root, use the runtime-configured Python interpreter and run:
+- `skills/job-search-skill/scripts/run_jobspy_search.py`
+
+That script is the retrieval backend.
+It reads the latest `search.json`, runs JobSpy directly, writes one JSON file per listing into `listings/`, and updates `search.json` with execution details.
+
+Fail clearly if the script fails.
+
+Step 5 — Validate the retrieval artifacts
+Use the active run folder and verify that retrieval produced:
+- `search.json`
 - `listings/`
 
-From `plan.json`, extract:
-- `profilePath`
-- `candidateModel`
-- `artifacts.listingsDir` if present
-
-If `artifacts.listingsDir` is not present, assume:
-- `runtime-data/search-runs/<runId>/listings/`
+Optional:
+- `summary.md`
 
 Fail clearly if:
 - the run folder is missing
-- `plan.json` is missing
-- `normalized-jobs.json` is missing
-- `profilePath` is missing
+- `search.json` is missing
 - the per-listing directory is missing
 - no listing files are present
 
-Step 3 — Use one listing file per sub-agent
-Each listing should already exist as its own JSON file under:
-- `runtime-data/search-runs/<runId>/listings/<listingId>.json`
-
-Spawn exactly one sub-agent per listing file.
-
-Do not batch multiple listings into one sub-agent.
-
-Each sub-agent should receive:
-- `profilePath`
-- `listingPath`
-- `runId` (optional)
-
-The sub-agent must evaluate exactly one listing using the `job-listing-evaluation-skill`.
-
-Step 4 — Per-listing evaluator contract
-Each listing-evaluation sub-agent must:
-1. read the candidate profile from `profilePath`
-2. read the listing JSON from `listingPath`
-3. evaluate the listing against the profile using the `job-listing-evaluation-skill`
-4. return JSON only
-
-Minimum required JSON shape:
-{
-  "listingId": "string",
-  "decision": "keep",
-  "score": 84,
-  "reasoning": "Strong junior backend fit with relevant Java/Spring experience; slight stretch on years requirement."
-}
-
-Optional fields:
-- `dimensions` (0-100 only)
-- `flags`
-
-Rules:
-- one listing only
-- single 0-100 score system only
-- no markdown
-- no prose outside JSON
-- concise, specific reasoning
-- fail clearly if profile or listing cannot be read
-
-Step 5 — Collect evaluation results
-Wait for all listing-evaluation sub-agents to finish.
-
-Write one evaluation artifact per successful listing under:
-- `runtime-data/evaluations/<runId>/<listingId>.json`
-
-If some sub-agents fail:
-- preserve successful evaluations
-- record failures explicitly
-- do not fabricate missing evaluations
-
-Step 6 — Build final aggregate
-Create:
-- `runtime-data/final-results/<runId>.json`
-
-This aggregate must include:
+Step 6 — Return a concise retrieval summary
+Report:
 - `runId`
-- `retrievedCount`
-- `evaluatedCount`
-- `keptCount`
-- `droppedCount`
-- `failures`
-- `finalListings`
-
-Rules for `finalListings`:
-- include only listings with `decision = keep`
-- sort by highest `score` first
-- merge evaluation fields onto the listing records where useful
-
-If evaluation failures occurred, include them under `failures`.
-
-Step 7 — Create the Excel export
-Run the existing export step:
-- `scripts/export_jobs_csv.py`
-
-That script prefers:
-- `runtime-data/final-results/<runId>.json`
-
-and falls back to the latest per-run `normalized-jobs.json` if no final-results artifact exists.
-
-So ensure the final-results file is written before export when evaluation succeeds.
-
-Success means an Excel file is created under:
-- `runtime-data/exports/`
+- `profilePath`
+- number of queries executed
+- number of listing files written
+- artifact paths
+- any obvious retrieval issues
 
 Operational rules
+- Keep orchestration thin.
+- The agent controls the plan.
+- The project script performs retrieval.
+- Retrieval outputs are only `search.json` plus `listings/*.json`, with optional `summary.md`.
+- Do not assume old pipeline files such as `plan.json`, `normalized-jobs.json`, `raw-results.json`, `rejected-jobs.json`, or Excel exports.
 - Do not invent fallback data.
 - Do not silently skip failed steps.
-- Keep orchestration thin.
-- Use the repo’s existing scripts and artifact structure.
-- One sub-agent per listing file.
-- Prefer clear artifacts over prompt stuffing.
-
-Suggested limits
-- maximum listings to evaluate per run: 15
-- concurrency cap for listing evaluators: 5
-
-If more than the limit are retrieved:
-- evaluate only the first 15 listing files
-- be explicit about the cap in the final summary
 
 Success condition
 A successful run should produce:
-- normalized retrieval output
-- per-listing JSON artifacts
-- one evaluation result per successfully evaluated listing
-- `runtime-data/final-results/<runId>.json`
-- Excel export in `runtime-data/exports/`
+- `runtime-data/search-runs/<runId>/search.json`
+- one or more `runtime-data/search-runs/<runId>/listings/<listingId>.json`
+- optional `runtime-data/search-runs/<runId>/summary.md`
 
 If any critical step fails, surface the failure clearly.

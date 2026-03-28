@@ -1,6 +1,6 @@
 # Evaluation Schema
 
-Use this schema when evaluating collected job listings against a candidate profile.
+Use this schema when evaluating a collected job listing against a candidate profile.
 
 ## Scoring model
 
@@ -56,61 +56,24 @@ Suggested dimensions, each on a 0-100 scale:
 
 ## Output shape
 
+Return one JSON object per evaluated listing.
+
 ```json
 {
-  "candidateSummary": {
-    "targetRoleFamily": ["software engineer", "backend engineer"],
-    "seniority": "junior",
-    "experienceYears": 2,
-    "employmentIntent": "full-time",
-    "locations": ["Istanbul"],
-    "workModes": ["hybrid", "remote"]
+  "listingId": "job-001",
+  "decision": "keep",
+  "score": 84,
+  "reasoning": "Matches backend/software target family, junior level is aligned, and the stack overlap looks interview-viable.",
+  "dimensions": {
+    "roleFamilyAlignment": 95,
+    "seniorityFit": 95,
+    "experienceFit": 80,
+    "skillsStackFit": 82,
+    "domainCompanyFit": 65,
+    "locationWorkModeFit": 95,
+    "practicalConstraints": 75
   },
-  "evaluations": [
-    {
-      "listingId": "job-001",
-      "title": "Junior Backend Engineer",
-      "company": "Example Co",
-      "decision": "keep",
-      "score": 84,
-      "dimensions": {
-        "roleFamilyAlignment": 95,
-        "seniorityFit": 95,
-        "experienceFit": 80,
-        "skillsStackFit": 82,
-        "domainCompanyFit": 65,
-        "locationWorkModeFit": 95,
-        "practicalConstraints": 75
-      },
-      "reasoning": [
-        "Matches backend/software target family.",
-        "Junior title aligns with the candidate's early-career profile.",
-        "Java/Spring overlap is strong enough for interview viability."
-      ],
-      "flags": []
-    },
-    {
-      "listingId": "job-002",
-      "title": "Senior Engineering Manager",
-      "company": "Example Co",
-      "decision": "drop",
-      "score": 12,
-      "dimensions": {
-        "roleFamilyAlignment": 20,
-        "seniorityFit": 0,
-        "experienceFit": 0,
-        "skillsStackFit": 25,
-        "domainCompanyFit": 40,
-        "locationWorkModeFit": 50,
-        "practicalConstraints": 20
-      },
-      "reasoning": [
-        "Managerial leadership role is outside the target IC path.",
-        "Required seniority is far above the candidate profile."
-      ],
-      "flags": ["seniority-mismatch", "managerial-role"]
-    }
-  ]
+  "flags": []
 }
 ```
 
@@ -118,6 +81,7 @@ Suggested dimensions, each on a 0-100 scale:
 
 - Keep it short.
 - Reference evidence from the listing or profile.
+- Return `reasoning` as a concise string, not a markdown block.
 - Prefer concrete mismatch labels in `flags` such as:
   - `seniority-mismatch`
   - `experience-mismatch`
