@@ -39,23 +39,39 @@ def load_runtime_config(project_root: Path):
     return data
 
 
+def load_export_source(output_base: Path):
+    final_results_dir = output_base / 'final-results'
+    if final_results_dir.exists():
+        final_files = sorted(final_results_dir.glob('*.json'))
+        if final_files:
+            source_file = final_files[-1]
+            payload = json.loads(source_file.read_text())
+            final_listings = payload.get('finalListings')
+            if isinstance(final_listings, list):
+                return source_file, final_listings, 'final-results'
+
+    jobs_dir = output_base / 'jobs'
+    job_files = sorted(jobs_dir.glob('*.json'))
+    if not job_files:
+        raise SystemExit('No job files found to export.')
+    source_file = job_files[-1]
+    jobs = json.loads(source_file.read_text())
+    if not isinstance(jobs, list):
+        raise SystemExit(f'Export source must be a list of jobs: {source_file}')
+    return source_file, jobs, 'jobs'
+
+
 def main():
     project_root = resolve_project_root()
     runtime = load_runtime_config(project_root)
     output_base = Path(runtime['outputBase'])
-    jobs_dir = output_base / 'jobs'
     exports_dir = output_base / 'exports'
     exports_dir.mkdir(parents=True, exist_ok=True)
 
-    job_files = sorted(jobs_dir.glob('*.json'))
-    if not job_files:
-        raise SystemExit('No job files found to export.')
-
-    source_file = job_files[-1]
-    jobs = json.loads(source_file.read_text())
+    source_file, jobs, source_kind = load_export_source(output_base)
     run_id = source_file.stem
 
-    fields = ['title', 'company', 'location', 'workMode', 'source', 'postedDate', 'url', 'summary']
+    fields = ['title', 'company', 'location', 'workMode', 'source', 'postedDate', 'url', 'summary', 'score', 'decision', 'reasoning']
     xlsx_path = exports_dir / f'{run_id}.xlsx'
     latest_path = exports_dir / 'latest.xlsx'
 
@@ -65,7 +81,10 @@ def main():
     ws.append(fields)
 
     for job in jobs:
-        ws.append([job.get(k) for k in fields])
+        reasoning = job.get('reasoning')
+        if isinstance(reasoning, list):
+            reasoning = ' | '.join(str(item) for item in reasoning)
+        ws.append([job.get(k) if k != 'reasoning' else reasoning for k in fields])
 
     for column_cells in ws.columns:
         max_len = 0
@@ -78,7 +97,7 @@ def main():
 
     wb.save(xlsx_path)
     wb.save(latest_path)
-    print(xlsx_path)
+    print(f'{xlsx_path} ({source_kind})')
 
 
 if __name__ == '__main__':

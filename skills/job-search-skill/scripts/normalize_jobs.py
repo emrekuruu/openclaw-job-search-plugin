@@ -108,6 +108,7 @@ def main():
     output_base = Path(runtime['outputBase'])
     raw_dir = output_base / 'raw'
     jobs_dir = output_base / 'jobs'
+    job_listings_dir = output_base / 'job-listings'
     runs_dir = output_base / 'search-runs'
 
     raw_files = sorted(raw_dir.glob('*.json'))
@@ -143,6 +144,12 @@ def main():
     out = jobs_dir / f'{run_id}.json'
     out.write_text(json.dumps(normalized, indent=2) + '\n')
 
+    per_listing_dir = job_listings_dir / run_id
+    per_listing_dir.mkdir(parents=True, exist_ok=True)
+    for item in normalized:
+        listing_path = per_listing_dir / f"{item['id']}.json"
+        listing_path.write_text(json.dumps(item, indent=2) + '\n')
+
     rejected_out = jobs_dir / f'{run_id}.rejected.json'
     rejected_out.write_text(json.dumps(rejected, indent=2) + '\n')
 
@@ -151,6 +158,7 @@ def main():
         run = json.loads(run_path.read_text())
         run['resultCount'] = len(normalized)
         run['rejectedCount'] = len(rejected)
+        run['jobListingsPath'] = str(per_listing_dir)
         run_path.write_text(json.dumps(run, indent=2) + '\n')
 
     print(out)
