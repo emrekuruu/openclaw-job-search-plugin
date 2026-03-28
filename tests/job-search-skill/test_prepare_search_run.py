@@ -33,18 +33,13 @@ def test_runtime_config_path_builder():
     assert mod.runtime_config_path(root).as_posix() == '/tmp/project-root/config/runtime.json'
 
 
-def test_build_search_plan_contains_queries():
-    model = {
-        'desiredRoles': ['Software Engineer', 'Backend Engineer', 'Junior Software Engineer'],
-        'targetCompanies': ['Akbank', 'Insider'],
-        'locations': ['Istanbul'],
-        'workModes': ['hybrid'],
-        'experienceSummary': [],
-        'seniority': 'junior',
-        'domainFocus': ['banking technology', 'fintech'],
-        'techFocus': ['java', 'react'],
-        'avoid': ['senior']
-    }
-    plan = mod.build_search_plan('run-1', Path('/tmp/profile.md'), model)
-    assert plan['queries']
-    assert any(q['kind'] == 'company-targeted' for q in plan['queries'])
+def test_derive_core_queries_contains_company_targeted_entries():
+    queries = mod.derive_core_queries(
+        role_families=['software engineer', 'backend engineer'],
+        tech_focus=['java', 'react'],
+        preferred_companies=['Akbank', 'Insider'],
+        locations=['Istanbul'],
+        seniority='junior',
+    )
+    assert queries
+    assert any(q['kind'] == 'company-targeted' for q in queries)

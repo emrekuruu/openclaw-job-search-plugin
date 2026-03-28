@@ -8,13 +8,14 @@ mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 
 
-def test_build_requests_from_plan_creates_expected_shape():
-    plan = {
+def test_build_requests_creates_expected_shape():
+    run = {
         'queries': [
             {'kind': 'role-core', 'searchTerm': 'Junior Software Engineer', 'location': 'Istanbul', 'reason': 'junior fit'},
             {'kind': 'company-targeted', 'searchTerm': 'Software Engineer Akbank', 'location': 'Istanbul', 'reason': 'target company'},
         ],
-        'qualityRules': {'maxResultsPerQuery': 8}
+        'qualityRules': {'maxResultsPerQuery': 8},
+        'workModes': ['hybrid'],
     }
     config = {
         'siteNames': ['linkedin'],
@@ -25,11 +26,11 @@ def test_build_requests_from_plan_creates_expected_shape():
         'defaultCountryIndeed': 'turkey',
         'verbose': 1,
     }
-    requests = mod.build_requests_from_plan(plan, config)
+    requests = mod.build_requests(run, config)
     assert requests
     assert all('search_term' in r for r in requests)
     assert all(r['site_name'] == ['linkedin'] for r in requests)
-    assert requests[0]['queryKind'] == 'role-core'
+    assert requests[0]['results_wanted'] == 8
 
 
 def test_load_latest_run_requires_files(tmp_path):

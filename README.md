@@ -26,10 +26,11 @@ This means the repo owns:
 
 - the Python runtime
 - config
-- runtime data
+- runtime data directories and conventions
 - scripts
 - tests
-- exports
+
+Generated search outputs and exports live under `runtime-data/`, but they are runtime artifacts rather than source-of-truth files for git.
 
 And the skill owns:
 
@@ -122,15 +123,14 @@ job-search-bot/
 ├── runtime-data/
 │   ├── profiles/
 │   ├── search-plans/
-│   ├── search-runs/
-│   ├── raw/
-│   ├── jobs/
-│   └── exports/
+│   ├── search-runs/      # generated
+│   ├── raw/              # generated
+│   ├── jobs/             # generated
+│   └── exports/          # generated
+├── prompts/
 ├── skills/
-│   └── job-search-skill/
-│       ├── SKILL.md
-│       ├── references/
-│       └── scripts/
+│   ├── job-search-skill/
+│   └── job-listing-evaluation-skill/
 ├── scripts/
 │   └── export_jobs_csv.py
 ├── tests/
@@ -181,29 +181,25 @@ Candidate-specific filtering and prioritization should come from:
 
 ## runtime-data/
 
-This is where actual runtime artifacts are stored.
+This is where runtime inputs and generated artifacts are stored.
 
-### `runtime-data/profiles/`
-Candidate profiles used for search.
+### Tracked inputs/docs
 
-### `runtime-data/search-plans/`
-Search plans derived from profile interpretation.
-This is the bridge between:
-- profile reasoning
-- backend execution
+- `runtime-data/profiles/` — candidate profiles used for search
+- `runtime-data/search-plans/README.md` — folder-level note for generated plans
 
-### `runtime-data/search-runs/`
-Human-readable and structured run records.
+### Generated artifacts
 
-### `runtime-data/raw/`
-Raw backend output from live retrieval.
+These are intentionally treated as runtime output, not long-lived source files:
 
-### `runtime-data/jobs/`
-Normalized jobs after cleanup/dedup.
-
-### `runtime-data/exports/`
-User-facing export files.
-Currently used for Excel output.
+- `runtime-data/search-plans/*.json` — generated search plans
+- `runtime-data/search-runs/` — human-readable and structured run records
+- `runtime-data/raw/` — raw backend output from live retrieval
+- `runtime-data/jobs/` — normalized jobs after cleanup/dedup
+- `runtime-data/job-listings/` — per-listing normalized JSON files
+- `runtime-data/evaluations/` — listing evaluation outputs
+- `runtime-data/final-results/` — final aggregated results
+- `runtime-data/exports/` — user-facing Excel exports
 
 ---
 
@@ -335,7 +331,7 @@ The skill currently uses these scripts:
 
 - `skills/job-search-skill/references/run-notes.md`
 - `skills/job-search-skill/references/backend-notes.md`
-- `skills/job-search-skill/references/notes.md`
+- `skills/job-search-skill/references/retrieval-rules.md`
 - `skills/job-search-skill/references/search-plan-schema.md`
 
 ---
