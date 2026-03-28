@@ -72,7 +72,8 @@ def extract_job_signals(job_text: str):
         "React",
         "RESTful APIs",
         "Git",
-        "unit/integration testing",
+        "unit testing",
+        "integration testing",
         "English",
     ]
     nice_terms = [
@@ -117,8 +118,6 @@ def pick_explicit_support(profile, term):
         "React": ["react"],
         "Git": ["git"],
         "English": ["english: advanced", "english"],
-        "RESTful APIs": ["api", "open data apis"],
-        "unit/integration testing": ["unit testing"],
         "NodeJS": ["nodejs", "node.js"],
         "HTML": ["html"],
         "CSS": ["css"],
@@ -131,8 +130,21 @@ def pick_explicit_support(profile, term):
         "Firestore": ["firestore"],
         "Redis": ["redis"],
         "Memcached": ["memcached"],
+        "unit testing": ["unit testing"],
+        "integration testing": ["integration testing"],
     }
     for alias in mappings.get(term, [term]):
+        if alias.lower() in haystack.lower():
+            return True
+    return False
+
+
+def pick_adjacent_evidence(profile, term):
+    haystack = joined_profile_text(profile)
+    mappings = {
+        "RESTful APIs": ["api", "open data apis"],
+    }
+    for alias in mappings.get(term, []):
         if alias.lower() in haystack.lower():
             return True
     return False
@@ -149,15 +161,15 @@ def infer_experience_entries(profile):
     }
     if any("internal banking applications" in x.lower() for x in exp):
         ykt["bullets"].append(
-            "Built software for internal banking applications, focusing on efficient and secure workflows for internal users."
+            "Built software for internal banking applications with a focus on efficient and secure workflows for internal users."
         )
     if any("react on the frontend" in x.lower() for x in exp) and any("java and spring boot" in x.lower() for x in exp):
         ykt["bullets"].append(
-            "Implemented frontend functionality with React and backend/BFF functionality with Java and Spring Boot to support full-stack application delivery."
+            "Implemented React-based frontend flows and Java/Spring Boot backend and BFF functionality for full-stack delivery."
         )
     if any("postgresql" in x.lower() for x in exp):
         ykt["bullets"].append(
-            "Managed application data access with PostgreSQL to support core banking product behavior and backend workflows."
+            "Managed PostgreSQL data access to support core banking application behavior."
         )
     if ykt["bullets"]:
         items.append(ykt)
@@ -169,11 +181,11 @@ def infer_experience_entries(profile):
     }
     if any("real-time bus tracking" in x.lower() for x in exp):
         asis["bullets"].append(
-            "Built mobile application functionality for real-time bus tracking and card balance inquiry to support everyday transport use cases."
+            "Built mobile application features for real-time bus tracking and card balance inquiry."
         )
     if any("open data apis" in x.lower() for x in exp):
         asis["bullets"].append(
-            "Integrated open data APIs to power live application behavior tied to transportation and balance-related features."
+            "Integrated open data APIs to support live transportation and balance-related functionality."
         )
     if any("mvvm architecture" in x.lower() for x in exp):
         asis["bullets"].append(
@@ -189,11 +201,11 @@ def infer_experience_entries(profile):
     }
     if any("django" in x.lower() and "react" in x.lower() and "python" in x.lower() for x in exp):
         academic["bullets"].append(
-            "Built software projects with Django, React, MySQL, and Python across web development and data-oriented problem spaces."
+            "Built projects with Django, React, MySQL, and Python across web development and data-oriented problem spaces."
         )
     if any("machine learning" in x.lower() or "route optimization" in x.lower() for x in exp):
         academic["bullets"].append(
-            "Applied machine learning, data science, and route optimization work in academic projects to solve software and analytical problems."
+            "Applied machine learning, data science, and route optimization work in academic projects."
         )
     if academic["bullets"]:
         items.append(academic)
@@ -224,25 +236,27 @@ def build_skills(profile, job_signals):
 
 def build_gap_analysis(profile, job_signals):
     supported = []
+    adjacent_evidence = []
     unsupported = []
-    implied = []
 
     for term in job_signals["must_have"] + job_signals["nice_to_have"]:
         if pick_explicit_support(profile, term):
             supported.append(term)
-        elif term == "RESTful APIs" and pick_explicit_support(profile, "RESTful APIs"):
-            implied.append(term)
+        elif pick_adjacent_evidence(profile, term):
+            adjacent_evidence.append(term)
         else:
             unsupported.append(term)
 
     notes = [
         "Keep backend/full-stack emphasis on Java, Spring Boot, PostgreSQL, React, JavaScript, Git, unit testing, and API integration where directly supported.",
         "Treat API integration as adjacent evidence for RESTful API work, not proof of API design ownership.",
+        "Treat unit testing and integration testing separately; do not promote one into the other.",
         "Do not claim NodeJS, Vue/Vue3, GCP, Firestore, Redis, Memcached, or integration testing unless the candidate confirms them.",
     ]
 
     return {
         "supported": supported,
+        "adjacent_evidence": adjacent_evidence,
         "unsupported": unsupported,
         "notes": notes,
     }
