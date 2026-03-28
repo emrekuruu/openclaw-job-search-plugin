@@ -103,7 +103,7 @@ function latestRunDir(stateDir: string) {
   return dirs[dirs.length - 1];
 }
 
-function runPythonJobSpy(repoDir: string, stateDir: string) {
+function runPythonJobSpy(repoDir: string, stateDir: string, runId?: string) {
   return new Promise<{ searchPath: string; listingsDir: string; listingCount?: number }>((resolve, reject) => {
     const python = process.env.JOB_SEARCH_PYTHON || "python3";
     const script = path.join(repoDir, "skills", "job-search-skill", "scripts", "run_jobspy_search.py");
@@ -112,6 +112,7 @@ function runPythonJobSpy(repoDir: string, stateDir: string) {
       env: {
         ...process.env,
         OPENCLAW_STATE_DIR: path.dirname(path.dirname(stateDir)),
+        ...(runId ? { JOB_SEARCH_RUN_ID: runId } : {}),
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -272,7 +273,7 @@ export default definePluginEntry({
         const runDir = params.runId ? resolveArtifacts(cfg.stateDir, String(params.runId)).runDir : latestRunDir(cfg.stateDir);
         const searchPath = path.join(runDir, "search.json");
         requireExistingFile(searchPath, "search.json");
-        const result = await runPythonJobSpy(repoRoot(), cfg.stateDir);
+        const result = await runPythonJobSpy(repoRoot(), cfg.stateDir, String(params.runId || path.basename(runDir)));
         return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
       },
     });
@@ -340,7 +341,7 @@ export default definePluginEntry({
             exportsDir: artifacts.exportsDir,
           },
         });
-        const retrieval = await runPythonJobSpy(repoRoot(), cfg.stateDir);
+        const retrieval = await runPythonJobSpy(repoRoot(), cfg.stateDir, runId);
         const evaluation = await spawnEvaluators(api, cfg.stateDir, {
           runId,
           profilePath,

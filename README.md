@@ -42,3 +42,10 @@ The plugin registers these tools:
 - `job_search_spawn_evaluators`
 - `job_search_export_run`
 - `job_search_full_run`
+
+`job_search_run_retrieval` can target a specific prepared `runId`; if omitted, it falls back to the latest prepared run.
+
+## Python deps
+
+The JobSpy worker uses the repo's Python environment and dependency lock.
+Use `uv sync` in the repo before running retrieval.

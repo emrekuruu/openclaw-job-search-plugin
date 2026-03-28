@@ -25,9 +25,15 @@ def load_search_defaults() -> dict:
     return json.loads(path.read_text())
 
 
-def latest_run_dir(base: Path) -> Path:
+def resolve_run_dir(base: Path) -> Path:
+    requested_run_id = os.environ.get('JOB_SEARCH_RUN_ID')
     runs_dir = base / 'search-runs'
     runs_dir.mkdir(parents=True, exist_ok=True)
+    if requested_run_id:
+        run_dir = runs_dir / requested_run_id
+        if not run_dir.exists() or not run_dir.is_dir():
+            raise SystemExit(f'Requested run does not exist: {run_dir}')
+        return run_dir
     run_dirs = sorted(path for path in runs_dir.iterdir() if path.is_dir())
     if not run_dirs:
         raise SystemExit('No search runs found.')
@@ -83,7 +89,7 @@ def normalize_listing(run_id: str, raw: dict, query_entry: dict) -> dict:
 def main():
     base = state_dir()
     defaults = load_search_defaults()
-    run_dir = latest_run_dir(base)
+    run_dir = resolve_run_dir(base)
     search_path, search = load_search(run_dir)
     queries = search.get('queries') or []
     if not queries:
