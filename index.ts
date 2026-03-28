@@ -4,7 +4,7 @@ import { mkdirSync, readFileSync, readdirSync, writeFileSync, existsSync } from 
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import xlsx from "xlsx";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 
 type Json = Record<string, any>;
 
@@ -13,6 +13,68 @@ const __dirname = path.dirname(__filename);
 
 function repoRoot() {
   return __dirname;
+}
+
+function resolveJobSpyWorker(repoDir: string) {
+  return {
+    script: path.join(repoDir, "skills", "job-search-skill", "scripts", "run_jobspy_search.py"),
+    uvProject: path.join(repoDir, "pyproject.toml"),
+    venvPython: path.join(repoDir, ".venv", "bin", "python3"),
+  };
+}
+
+function resolvePythonCommand(repoDir: string) {
+  if (process.env.JOB_SEARCH_PYTHON) return process.env.JOB_SEARCH_PYTHON;
+  const worker = resolveJobSpyWorker(repoDir);
+  if (existsSync(worker.venvPython)) return worker.venvPython;
+  return "python3";
+}
+
+function verifyJobSpyWorkerReadiness(repoDir: string) {
+  const worker = resolveJobSpyWorker(repoDir);
+  if (!existsSync(worker.script)) {
+    throw new Error(
+      [
+        `JobSpy worker script is missing: ${worker.script}`,
+        "The plugin install/runtime copy must include skills/job-search-skill/scripts/run_jobspy_search.py.",
+      ].join(" "),
+    );
+  }
+
+  const python = resolvePythonCommand(repoDir);
+  const versionCheck = spawnSync(python, ["--version"], { encoding: "utf8" });
+  if (versionCheck.error) {
+    throw new Error(
+      [
+        `Python runtime not available via ${JSON.stringify(python)}.`,
+        `Set JOB_SEARCH_PYTHON to a working interpreter or create ${worker.venvPython}.`,
+        `Recommended setup: cd ${repoDir} && uv sync`,
+        `Fallback: python3 -m venv .venv && .venv/bin/pip install -U pip python-jobspy pandas pydantic openpyxl`,
+      ].join("\n"),
+    );
+  }
+
+  const importCheck = spawnSync(
+    python,
+    [
+      "-c",
+      "from jobspy import scrape_jobs; import pandas, pydantic, openpyxl; print('jobspy-ready')",
+    ],
+    { encoding: "utf8", cwd: repoDir },
+  );
+  if (importCheck.status !== 0) {
+    const stderr = (importCheck.stderr || importCheck.stdout || "").trim();
+    throw new Error(
+      [
+        `JobSpy worker dependencies are not ready for interpreter ${JSON.stringify(python)}.`,
+        stderr ? `Python said: ${stderr}` : "",
+        `Recommended setup: cd ${repoDir} && uv sync`,
+        `Then either let the plugin use ${worker.venvPython} automatically, or set JOB_SEARCH_PYTHON to the interpreter you want.`,
+      ].filter(Boolean).join("\n"),
+    );
+  }
+
+  return { python, script: worker.script, uvProject: worker.uvProject };
 }
 
 function resolvePluginStateDir(api: any) {
@@ -105,8 +167,7 @@ function latestRunDir(stateDir: string) {
 
 function runPythonJobSpy(repoDir: string, stateDir: string, runId?: string) {
   return new Promise<{ searchPath: string; listingsDir: string; listingCount?: number }>((resolve, reject) => {
-    const python = process.env.JOB_SEARCH_PYTHON || "python3";
-    const script = path.join(repoDir, "skills", "job-search-skill", "scripts", "run_jobspy_search.py");
+    const { python, script } = verifyJobSpyWorkerReadiness(repoDir);
     const child = spawn(python, [script], {
       cwd: repoDir,
       env: {
@@ -259,6 +320,23 @@ export default definePluginEntry({
           },
         });
         const details = { runId, searchPath: artifacts.searchPath, listingsDir: artifacts.listingsDir };
+        return { content: [{ type: "text", text: JSON.stringify(details) }], details };
+      },
+    });
+
+    api.registerTool({
+      name: "job_search_check_worker",
+      label: "Check JobSpy worker readiness",
+      description: "Verify that the installed plugin copy can reach the JobSpy Python worker and that its dependencies are installed.",
+      parameters: Type.Object({}),
+      async execute() {
+        const worker = verifyJobSpyWorkerReadiness(repoRoot());
+        const details = {
+          ready: true,
+          python: worker.python,
+          script: worker.script,
+          uvProject: worker.uvProject,
+        };
         return { content: [{ type: "text", text: JSON.stringify(details) }], details };
       },
     });

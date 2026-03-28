@@ -24,6 +24,7 @@ The agent should:
 - state-dir artifact layout
 - evaluator fanout
 - export / aggregation
+- runtime worker readiness checks and actionable failure messages
 
 ### This skill owns
 - the JobSpy retrieval worker script
@@ -36,6 +37,19 @@ JobSpy stays here:
 - `skills/job-search-skill/scripts/run_jobspy_search.py`
 
 The plugin calls this Python script to execute retrieval against the current state-backed run.
+
+## Python environment
+
+The retrieval worker depends on the plugin repo's Python environment defined in `pyproject.toml`.
+
+Recommended setup:
+
+```bash
+uv sync
+```
+
+The plugin prefers `JOB_SEARCH_PYTHON` when set, otherwise `.venv/bin/python3`, then `python3`.
+If imports are missing, the plugin now fails early with setup guidance instead of surfacing an opaque runtime crash from the worker.
 
 ## Retrieval philosophy
 

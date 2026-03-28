@@ -37,6 +37,7 @@ The sample profile under `assets/profiles/` is example/demo content only.
 ## Plugin surfaces
 
 The plugin registers these tools:
+- `job_search_check_worker`
 - `job_search_prepare_run`
 - `job_search_run_retrieval`
 - `job_search_spawn_evaluators`
@@ -45,7 +46,34 @@ The plugin registers these tools:
 
 `job_search_run_retrieval` can target a specific prepared `runId`; if omitted, it falls back to the latest prepared run.
 
-## Python deps
+## Python worker setup
 
-The JobSpy worker uses the repo's Python environment and dependency lock.
-Use `uv sync` in the repo before running retrieval.
+OpenClaw installs plugin JS dependencies with `npm install --ignore-scripts`; there is no plugin-era Python dependency provisioning hook here. So the Python worker setup has to be explicit.
+
+Recommended setup from the plugin repo or installed plugin directory:
+
+```bash
+uv sync
+```
+
+That creates/updates `.venv` from `pyproject.toml`. The plugin now prefers this interpreter automatically:
+
+- uses `JOB_SEARCH_PYTHON` if you set it
+- otherwise uses `.venv/bin/python3` when present
+- otherwise falls back to `python3`
+
+## Runtime readiness behavior
+
+Before retrieval runs, the plugin now verifies that:
+- the JobSpy worker script exists in the installed plugin copy
+- the selected Python interpreter is callable
+- `python-jobspy`, `pandas`, `pydantic`, and `openpyxl` import successfully
+
+If readiness fails, the tool returns an actionable error telling you to run:
+
+```bash
+cd /path/to/job-search-plugin
+uv sync
+```
+
+You can also probe readiness directly with `job_search_check_worker` before starting a run.
