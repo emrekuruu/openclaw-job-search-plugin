@@ -6,12 +6,4 @@
 .vscode/
 .pytest_cache/
 
-# Generated runtime artifacts
-runtime-data/raw/*.json
-runtime-data/jobs/*.json
-runtime-data/search-runs/*.json
-runtime-data/search-runs/*.md
-runtime-data/search-plans/*.json
-runtime-data/job-listings/
-runtime-data/evaluations/
-runtime-data/exports/
+runtime-data/
