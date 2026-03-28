@@ -1,9 +1,0 @@
-{
-  "projectRoot": ".",
-  "pythonPath": ".venv/bin/python",
-  "searchDefaultsPath": "config/search-defaults.json",
-  "notes": {
-    "profilePath": "Operational runs must provide profilePath as a tool input.",
-    "runtimeArtifacts": "Runtime artifacts are written by the plugin under the OpenClaw state dir, not into this repo."
-  }
-}

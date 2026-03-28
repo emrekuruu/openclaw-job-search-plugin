@@ -1,15 +1,14 @@
 # job-search-bot
 
-This repo is a native OpenClaw plugin. The repo now holds only plugin code, static assets, prompts, and skills.
+This repo is a native OpenClaw plugin. It now keeps only the plugin entry, manifest, static defaults, the evaluator prompt, thin supporting skills, and demo assets.
 
-## Final plugin structure
+## Plugin structure
 
 - `index.ts` — native plugin entry and deterministic workflow engine
 - `openclaw.plugin.json` — plugin manifest and config schema
 - `config/search-defaults.json` — repo-owned static retrieval defaults
-- `config/runtime.json` — non-operational reference notes only
-- `prompts/` — evaluator/orchestrator prompt templates
-- `skills/` — thin agent-facing skills
+- `prompts/job-listing-evaluator-subagent-prompt.md` — evaluator subagent prompt template
+- `skills/` — thin agent-facing skills retained for plugin-era flows
 - `assets/profiles/sample-software-engineer-profile.md` — optional example profile only
 
 ## Runtime artifact layout
