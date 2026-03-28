@@ -7,3 +7,6 @@
 .pytest_cache/
 
 runtime-data/
+# plugin runtime artifacts
+runtime-data/**
+!.gitkeep

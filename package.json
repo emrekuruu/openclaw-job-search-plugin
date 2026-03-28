@@ -1,0 +1,13 @@
+{
+  "name": "@emrekuru/openclaw-job-search",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "openclaw": {
+    "extensions": ["./index.ts"]
+  },
+  "dependencies": {
+    "openclaw": "*",
+    "@sinclair/typebox": "^0.34.41"
+  }
+}

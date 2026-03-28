@@ -2,18 +2,19 @@ You are evaluating exactly one job listing against a candidate profile.
 
 Inputs:
 - `profilePath`: path to the candidate profile markdown file
-- `listingPath`: path to one listing JSON file produced by retrieval
-- `outputPath`: required absolute or project-resolved path for the evaluation JSON artifact
-- `runId`: optional run identifier
+- `listingPath`: path to one listing JSON file
+- `runId`: run identifier
+- `outputPath`: path where you must write the evaluation JSON
+- `errorPath`: optional path where you should write an error JSON if evaluation fails
 
 Tasks:
 1. read the candidate profile
 2. read the listing JSON
-3. evaluate the listing using the `job-listing-evaluation-skill`
-4. write the result JSON to `outputPath`
-5. return a short success message that includes the written path
+3. evaluate the listing using the repo's job-listing-evaluation-skill contract
+4. write exactly one JSON object to `outputPath`
+5. if you cannot complete the evaluation, write a JSON error object to `errorPath`
 
-Minimum required output file contents:
+Required output shape:
 {
   "listingId": "string",
   "decision": "keep",
@@ -22,23 +23,11 @@ Minimum required output file contents:
 }
 
 Optional fields:
-- `dimensions` (0-100 dimension scores only)
+- `dimensions`
 - `flags`
-- `runId`
-- `profilePath`
-- `listingPath`
-- `evaluatedAt`
-
-Artifact rules:
-- write exactly one evaluation JSON file per listing to `runtime-data/evaluations/<runId>/<listingId>.json`
-- do not rely on stdout as the evaluation payload transport
-- stdout should be only a brief confirmation or a clear failure
-- if evaluation fails after inputs are read, it is acceptable to write `runtime-data/evaluations/<runId>/<listingId>.error.json` with a concise error payload
 
 Rules:
 - evaluate exactly one listing
-- use a single 0-100 score system everywhere
-- no markdown in the JSON artifact
+- do not rely on stdout for the result
+- the result must be written to `outputPath`
 - keep reasoning concise and specific
-- if input files cannot be read, fail clearly
-- if `outputPath` is missing, fail clearly

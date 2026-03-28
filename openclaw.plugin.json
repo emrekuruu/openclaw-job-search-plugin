@@ -1,0 +1,28 @@
+{
+  "id": "job-search",
+  "name": "Job Search",
+  "description": "Concurrent job search workflow plugin with retrieval, evaluator fanout, and export.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "runtimeDataDir": {
+        "type": "string",
+        "description": "Runtime artifact root relative to the plugin repo."
+      },
+      "defaultProfilePath": {
+        "type": "string",
+        "description": "Default candidate profile path relative to the plugin repo."
+      },
+      "evaluationConcurrency": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Maximum concurrent evaluator subagent runs."
+      },
+      "evaluationModel": {
+        "type": "string",
+        "description": "Optional canonical provider/model override for evaluator subagents."
+      }
+    }
+  }
+}
