@@ -29,7 +29,7 @@ Ask for essential details first, unless the user has already provided them:
 
 ### Step 2: Collect Section Content
 
-For each section the user wants to include, gather specific details. Never invent dates, company names, or achievements.
+For each section the user wants to include, gather specific details. Never invent dates, company names, achievements, technologies, scope, or metrics.
 
 **Experience**: company, position, location, period (e.g., "Jan 2020 - Present"), description of responsibilities/achievements
 
@@ -66,11 +66,12 @@ Share these tips when helping users craft their resume content:
 
 ### Content Guidelines
 
-- **Lead with impact**: Start bullet points with action verbs (Led, Developed, Increased, Managed)
-- **Quantify achievements**: Use numbers when possible ("Increased sales by 25%", "Managed team of 8")
-- **Tailor to the role**: Emphasize relevant experience for the target position
-- **Be specific**: Replace vague terms with concrete examples
-- **Keep it concise**: 1-2 pages maximum for most professionals
+- **Lead with impact**: Start bullet points with clear action verbs such as Built, Implemented, Developed, Integrated, or Delivered
+- **Use WHAT + HOW + WHY**: Each experience bullet should state what was built or changed, how it was done (technology / layer / method), and why it mattered (user, workflow, quality, product purpose, or system behavior)
+- **Avoid generic phrasing**: Do not use weak phrases like "worked on" or "contributed to" when a more specific grounded verb is possible
+- **Tailor to the role**: For backend/full-stack roles, emphasize backend layers, APIs, data access, system behavior, and the strongest matching technologies first
+- **Keep it grounded**: Never invent metrics, scope, ownership, or tools that were not provided by the candidate
+- **Keep it concise**: Prefer short, information-dense bullets over generic multi-clause descriptions
 
 ### Section Order Recommendations
 
@@ -93,7 +94,9 @@ For students/recent graduates:
 
 - Including personal pronouns ("I", "my")
 - Using passive voice
-- Listing job duties instead of achievements
+- Writing vague bullets that hide the technology, scope, or purpose
+- Repeating generic phrases like "worked on" or "contributed to"
+- Listing job duties without showing what was built and why it mattered
 - Including irrelevant personal information
 - Inconsistent date formatting
 
