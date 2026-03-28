@@ -53,8 +53,10 @@ def main():
     run_id = run['runId']
 
     jobs_path = jobs_dir / f'{run_id}.json'
+    rejected_path = jobs_dir / f'{run_id}.rejected.json'
     jobs = json.loads(jobs_path.read_text()) if jobs_path.exists() else []
-    plan = json.loads(Path(run['searchPlanPath']).read_text()) if run.get('searchPlanPath') else None
+    rejected = json.loads(rejected_path.read_text()) if rejected_path.exists() else []
+    candidate_model = run.get('candidateModel') or {}
 
     lines = []
     lines.append(f'# Search Run Summary - {run_id}')
@@ -65,28 +67,28 @@ def main():
     lines.append(f"- Backend: `{run.get('backend')}`")
     lines.append(f"- Profile path: `{run.get('profilePath')}`")
     lines.append('')
-    lines.append('## Search Brief')
-    lines.append(f"- Desired roles: {', '.join(run.get('desiredRoles', []))}")
-    lines.append(f"- Target companies: {', '.join(run.get('targetCompanies', []))}")
-    lines.append(f"- Locations: {', '.join(run.get('locations', []))}")
-    lines.append(f"- Work modes: {', '.join(run.get('workModes', []))}")
-    lines.append(f"- Freshness window: {run.get('freshnessWindow')}")
+    lines.append('## Candidate Model')
+    lines.append(f"- Seniority: {candidate_model.get('seniority', 'unknown')}")
+    lines.append(f"- Role family: {', '.join(candidate_model.get('roleFamily', []))}")
+    lines.append(f"- Experience years: {candidate_model.get('experienceYears')}")
+    lines.append(f"- Tech focus: {', '.join(candidate_model.get('techFocus', []))}")
+    lines.append(f"- Domain focus: {', '.join(candidate_model.get('domainFocus', []))}")
     lines.append('')
-    if plan:
-        lines.append('## Search Plan')
-        lines.append(f"- Candidate seniority: {plan['candidateModel'].get('seniority')}")
-        lines.append(f"- Role family: {', '.join(plan['candidateModel'].get('roleFamily', []))}")
-        lines.append(f"- Tech focus: {', '.join(plan['candidateModel'].get('techFocus', []))}")
-        lines.append(f"- Domain focus: {', '.join(plan['candidateModel'].get('domainFocus', []))}")
-        lines.append(f"- Preferred companies: {', '.join(plan['candidateModel'].get('preferredCompanies', []))}")
-        lines.append('- Queries used:')
-        for q in plan.get('queries', []):
-            lines.append(f"  - [{q['kind']}] {q['searchTerm']} @ {q['location']} — {q['reason']}")
-        lines.append('')
+    lines.append('## Search Plan')
+    lines.append(f"- Query count: {len(run.get('queries', []))}")
+    for query in run.get('queries', [])[:8]:
+        lines.append(f"- [{query['kind']}] {query['searchTerm']} @ {query['location']} — {query['reason']}")
+    lines.append('')
     lines.append('## Results')
-    lines.append(f"- Total normalized results: {len(jobs)}")
+    lines.append(f'- Total kept after normalization: {len(jobs)}')
+    lines.append(f'- Total rejected as obvious mismatch: {len(rejected)}')
     for job in jobs[:10]:
-        lines.append(f"- {job['title']} — {job['company']} — {job['location']} — {job['source']}")
+        lines.append(f"- KEEP: {job['title']} — {job['company']} — {job['location']} — {job['source']}")
+    if rejected:
+        lines.append('')
+        lines.append('## Rejected examples')
+        for item in rejected[:10]:
+            lines.append(f"- DROP: {item['title']} — {item['company']} — {item['reason']}")
     lines.append('')
     lines.append('## Notes')
     lines.append(f"- {run.get('notes', '')}")

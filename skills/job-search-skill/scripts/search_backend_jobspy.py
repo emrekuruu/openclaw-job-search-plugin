@@ -48,12 +48,6 @@ def load_latest_run(runs_dir: Path):
     return json.loads(latest.read_text())
 
 
-def load_search_plan(plan_path: Path):
-    if not plan_path.exists():
-        raise SystemExit(f'Search plan not found: {plan_path}')
-    return json.loads(plan_path.read_text())
-
-
 def load_search_config(runtime):
     config_path = Path(runtime['searchDefaultsPath'])
     if not config_path.exists():
@@ -61,23 +55,26 @@ def load_search_config(runtime):
     return json.loads(config_path.read_text())
 
 
-def build_requests_from_plan(plan, config):
+def build_requests(run, config):
+    queries = run.get('queries') or []
+    if not queries:
+        raise SystemExit('Search run contains no explicit queries. Run prepare_search_run.py again after fixing profile inference.')
+
+    work_modes = set(v.lower() for v in run.get('workModes', []))
+    max_results = (run.get('qualityRules') or {}).get('maxResultsPerQuery') or config['resultsWanted']
     requests = []
-    max_results = plan.get('qualityRules', {}).get('maxResultsPerQuery', config['resultsWanted'])
-    for query in plan.get('queries', []):
+    for query in queries[: (run.get('qualityRules') or {}).get('maxQueries', len(queries))]:
         requests.append({
             'search_term': query['searchTerm'],
             'location': query['location'],
             'site_name': config['siteNames'],
-            'results_wanted': max_results,
+            'results_wanted': min(max_results, config['resultsWanted']),
             'hours_old': config['freshnessHours'],
-            'is_remote': False,
+            'is_remote': 'remote' in work_modes,
             'easy_apply': config['easyApply'],
             'linkedin_fetch_description': config['linkedinFetchDescription'],
             'country_indeed': config['defaultCountryIndeed'],
             'verbose': config['verbose'],
-            'queryKind': query['kind'],
-            'queryReason': query['reason'],
         })
     return requests
 
@@ -92,9 +89,8 @@ def live_execute(requests):
     payload = []
     failures = []
     for request in requests:
-        backend_request = {k: v for k, v in request.items() if k not in {'queryKind', 'queryReason'}}
         try:
-            df = scrape_jobs(**backend_request)
+            df = scrape_jobs(**request)
             payload.append({
                 'request': request,
                 'mode': 'live',
@@ -125,15 +121,15 @@ def main():
     run = load_latest_run(runs_dir)
     config = load_search_config(runtime)
     run_id = run['runId']
-    plan = load_search_plan(Path(run['searchPlanPath']))
-    requests = build_requests_from_plan(plan, config)
+    requests = build_requests(run, config)
     raw_results = live_execute(requests)
 
     raw_payload = {
         'runId': run_id,
         'backend': 'jobspy-project-adapter',
         'mode': 'live',
-        'searchPlanPath': run['searchPlanPath'],
+        'candidateModel': run.get('candidateModel', {}),
+        'queries': run.get('queries', []),
         'requests': requests,
         'rawResults': raw_results,
     }

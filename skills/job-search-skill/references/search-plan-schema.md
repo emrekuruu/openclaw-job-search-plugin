@@ -1,90 +1,86 @@
 # Search Plan Schema
 
-## Purpose
+Use this file when editing or auditing the retrieval plan.
 
-The search plan is the bridge between:
-
-- candidate interpretation by the skill
-- deterministic backend execution by the scripts
-
-It exists so the agent can think first, then execute a smaller number of higher-quality searches.
-
-This is preferable to broad retrieval followed by heavy scoring.
-
-## Design principle
-
-The search plan should be:
-
-- derived from the candidate profile
-- explicit and inspectable
-- focused on quality over volume
-- suitable for deterministic execution by the backend layer
-
-## Suggested structure
+## Required shape
 
 ```json
 {
-  "runId": "2026-03-27-software-engineer",
-  "profilePath": "/absolute/or/runtime/profile/path.md",
+  "runId": "2026-03-28-junior-software-engineer",
+  "profilePath": "/absolute/path/to/profile.md",
   "candidateModel": {
     "seniority": "junior",
-    "roleFamily": ["software engineer", "backend engineer", "full stack developer"],
-    "techFocus": ["java", "spring boot", "react", "python"],
-    "domainFocus": ["banking technology", "fintech", "software"],
-    "preferredCompanies": ["Yapı Kredi Teknoloji", "Akbank", "Garanti BBVA Teknoloji"],
+    "confidence": "high",
+    "roleFamily": ["software engineer", "backend engineer"],
+    "experienceYears": 2,
+    "techFocus": ["java", "spring boot", "python"],
+    "domainFocus": ["fintech", "banking technology"],
+    "preferredCompanies": ["Example Bank Tech"],
     "locations": ["Istanbul"],
-    "workModes": ["hybrid", "remote", "on premise"],
-    "avoid": ["senior", "lead", "staff", "principal", "manager", "qa-only", "support-only"]
+    "workModes": ["hybrid", "remote"],
+    "avoidTitlePatterns": ["senior", "lead", "staff", "principal", "manager"],
+    "avoidRoleFamilies": ["data scientist", "qa engineer", "designer"],
+    "maxAcceptedExperienceYears": 3
   },
   "queries": [
     {
       "kind": "role-core",
       "searchTerm": "Junior Software Engineer",
       "location": "Istanbul",
-      "reason": "Junior candidate with general software engineering target"
+      "reason": "Primary target role aligned with inferred junior profile"
     },
     {
       "kind": "role-tech",
-      "searchTerm": "Java Spring Boot Developer",
+      "searchTerm": "Java Backend Developer",
       "location": "Istanbul",
-      "reason": "Relevant backend stack from candidate experience"
+      "reason": "Relevant stack from the candidate profile"
     },
     {
       "kind": "company-targeted",
-      "searchTerm": "Software Engineer Yapı Kredi Teknoloji",
+      "searchTerm": "Software Engineer Example Bank Tech",
       "location": "Istanbul",
-      "reason": "Preferred company and directly relevant banking technology background"
+      "reason": "Preferred company plus relevant domain"
     }
   ],
   "qualityRules": {
     "preferPrecisionOverRecall": true,
     "maxQueries": 8,
-    "maxResultsPerQuery": 10,
-    "dedupRequired": true
+    "maxResultsPerQuery": 12,
+    "dedupRequired": true,
+    "rejectObviousSeniorityMismatch": true,
+    "rejectObviousRoleFamilyMismatch": true,
+    "rejectExperienceMismatch": true
   }
 }
 ```
 
-## Query kinds
+## Planning rules
 
-Recommended query kinds:
+1. Infer from the profile; do not depend on static candidate filters in config.
+2. Keep query count low.
+3. Use company-targeted queries only for explicitly preferred companies.
+4. Include adjacent role titles only if they are genuinely the same role family.
+5. If role family or likely seniority cannot be inferred with enough confidence, fail clearly instead of guessing.
 
-- `role-core` — core role searches such as junior software engineer
-- `role-tech` — stack-specific role searches such as Java Spring Boot developer
-- `domain-aware` — domain-specific searches such as fintech software engineer
-- `company-targeted` — company-priority searches
-- `fallback-broad` — optional last resort, used sparingly
+## Mandatory reject patterns
 
-## Recommended workflow
+Always reject or exclude obvious title mismatches for junior and early-career profiles:
+- senior
+- sr
+- lead
+- staff
+- principal
+- manager
+- head
+- director
+- architect
 
-1. Skill reads profile
-2. Skill infers candidate model
-3. Skill creates a search plan
-4. Execution layer runs the plan
-5. Results are normalized, deduped, and summarized
+Also reject listings whose title clearly leaves the target family, for example:
+- pure QA / test-only roles
+- data scientist / analyst roles when the profile targets software engineering
+- design/product roles when the profile targets engineering
 
-## Important rule
+## Retrieval vs evaluation
 
-The search plan should intentionally keep query count low.
-
-High-quality focused searches are preferred over broad noisy retrieval.
+This plan only supports retrieval quality control.
+Deep keep/drop judgment belongs in `job-listing-evaluation-skill`.
