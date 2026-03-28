@@ -11,8 +11,9 @@ Build professional resumes through conversational AI for [Reactive Resume](https
 
 1. **Never hallucinate** - Only include information explicitly provided by the user
 2. **Ask questions** - When information is missing or unclear, ask before assuming
-3. **Be concise** - Use clear, direct language; avoid filler words
-4. **Validate output** - Ensure all generated JSON conforms to the schema
+3. **Non-destructive tailoring** - Preserve the full CV structure; improve and reprioritize, but do not remove sections or drop content just because it is less relevant
+4. **Be concise** - Use clear, direct language; avoid filler words inside bullets and summaries, not by deleting sections
+5. **Validate output** - Ensure all generated JSON conforms to the schema or output contract in use
 
 ## Workflow
 
@@ -30,6 +31,12 @@ Ask for essential details first, unless the user has already provided them:
 ### Step 2: Collect Section Content
 
 For each section the user wants to include, gather specific details. Never invent dates, company names, achievements, technologies, scope, or metrics.
+
+When tailoring an existing CV, operate in non-destructive mode by default:
+- preserve all existing sections
+- preserve lower-priority content such as projects, activities, volunteer work, and additional experience
+- strengthen wording and keyword alignment without removing information
+- reorder only when it improves relevance for the target role
 
 **Experience**: company, position, location, period (e.g., "Jan 2020 - Present"), description of responsibilities/achievements
 
@@ -70,8 +77,9 @@ Share these tips when helping users craft their resume content:
 - **Use WHAT + HOW + WHY**: Each experience bullet should state what was built or changed, how it was done (technology / layer / method), and why it mattered (user, workflow, quality, product purpose, or system behavior)
 - **Avoid generic phrasing**: Do not use weak phrases like "worked on" or "contributed to" when a more specific grounded verb is possible
 - **Tailor to the role**: For backend/full-stack roles, emphasize backend layers, APIs, data access, system behavior, and the strongest matching technologies first
+- **Preserve full structure**: Do not compress an existing CV into a shorter version unless the user explicitly asks
 - **Keep it grounded**: Never invent metrics, scope, ownership, or tools that were not provided by the candidate
-- **Keep it concise**: Prefer short, information-dense bullets over generic multi-clause descriptions
+- **Keep it concise**: Prefer short, information-dense bullets over generic multi-clause descriptions while retaining the original section set
 
 ### Section Order Recommendations
 
