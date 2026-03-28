@@ -6,36 +6,44 @@ Use this file when editing or auditing the retrieval plan.
 
 ```json
 {
-  "runId": "2026-03-28-junior-software-engineer",
+  "runId": "2026-03-28-software-engineer",
   "profilePath": "/absolute/path/to/profile.md",
   "candidateModel": {
     "seniority": "junior",
     "confidence": "high",
     "roleFamily": ["software engineer", "backend engineer"],
-    "experienceYears": 2,
+    "experienceYears": 1,
+    "employmentIntent": "full-time",
     "techFocus": ["java", "spring boot", "python"],
-    "domainFocus": ["fintech", "banking technology"],
+    "domainFocus": ["fintech", "banking"],
     "preferredCompanies": ["Example Bank Tech"],
-    "locations": ["Istanbul"],
-    "workModes": ["hybrid", "remote"],
+    "locations": ["Istanbul", "Remote (Turkey)"],
+    "workModes": ["hybrid", "remote", "on premise"],
     "avoidTitlePatterns": ["senior", "lead", "staff", "principal", "manager"],
     "avoidRoleFamilies": ["data scientist", "qa engineer", "designer"],
     "maxAcceptedExperienceYears": 3,
     "retrievalFilters": {
       "siteNames": ["linkedin"],
       "isRemote": true,
-      "employmentIntent": "junior-fulltime",
+      "employmentIntent": "full-time",
       "jobType": "fulltime",
       "distance": 25,
       "easyApply": false,
       "hoursOld": 720,
       "linkedinFetchDescription": true
+    },
+    "inference": {
+      "seniorityReason": "Explicit junior / early-career wording in the profile.",
+      "employmentIntentReason": "Defaulted early-career candidate to full-time because internship was not explicitly requested.",
+      "roleFamilyReason": "Role family inferred from desired roles and profile keywords: software engineer, backend engineer.",
+      "locationsReason": "Locations came from explicit profile preferences.",
+      "workModesReason": "Work modes came from explicit profile preferences."
     }
   },
   "retrievalFilters": {
     "siteNames": ["linkedin"],
     "isRemote": true,
-    "employmentIntent": "junior-fulltime",
+    "employmentIntent": "full-time",
     "jobType": "fulltime",
     "distance": 25,
     "easyApply": false,
@@ -47,19 +55,19 @@ Use this file when editing or auditing the retrieval plan.
       "kind": "role-core",
       "searchTerm": "Junior Software Engineer",
       "location": "Istanbul",
-      "reason": "Primary target role aligned with inferred junior profile"
+      "reason": "Primary target role software engineer with junior seniority inferred from the profile."
     },
     {
       "kind": "role-tech",
-      "searchTerm": "Java Backend Developer",
+      "searchTerm": "Java Spring Boot Software Engineer",
       "location": "Istanbul",
-      "reason": "Relevant stack from the candidate profile"
+      "reason": "Stack-aware variant based on candidate technologies: java, spring boot."
     },
     {
       "kind": "company-targeted",
       "searchTerm": "Software Engineer Example Bank Tech",
       "location": "Istanbul",
-      "reason": "Preferred company plus relevant domain"
+      "reason": "Preferred company from the profile: Example Bank Tech."
     }
   ],
   "qualityRules": {
@@ -70,6 +78,15 @@ Use this file when editing or auditing the retrieval plan.
     "rejectObviousSeniorityMismatch": true,
     "rejectObviousRoleFamilyMismatch": true,
     "rejectExperienceMismatch": true
+  },
+  "artifacts": {
+    "runDir": "/absolute/path/to/runtime-data/search-runs/2026-03-28-software-engineer",
+    "planPath": "/absolute/path/to/runtime-data/search-runs/2026-03-28-software-engineer/plan.json",
+    "rawResultsPath": "/absolute/path/to/runtime-data/search-runs/2026-03-28-software-engineer/raw-results.json",
+    "normalizedJobsPath": "/absolute/path/to/runtime-data/search-runs/2026-03-28-software-engineer/normalized-jobs.json",
+    "rejectedJobsPath": "/absolute/path/to/runtime-data/search-runs/2026-03-28-software-engineer/rejected-jobs.json",
+    "listingsDir": "/absolute/path/to/runtime-data/search-runs/2026-03-28-software-engineer/listings",
+    "summaryPath": "/absolute/path/to/runtime-data/search-runs/2026-03-28-software-engineer/summary.md"
   }
 }
 ```
@@ -78,10 +95,12 @@ Use this file when editing or auditing the retrieval plan.
 
 1. Infer from the profile; do not depend on static candidate filters in config.
 2. Let the agent decide structured retrieval filters from the profile, not only search text.
-3. Keep query count low.
-4. Use company-targeted queries only for explicitly preferred companies.
-5. Include adjacent role titles only if they are genuinely the same role family.
-6. If role family or likely seniority cannot be inferred with enough confidence, fail clearly instead of guessing.
+3. Default to full-time unless the profile explicitly asks for internship or contract work.
+4. Keep query count low.
+5. Use company-targeted queries only for explicitly preferred companies.
+6. Include adjacent role titles only if they are genuinely the same role family.
+7. If role family or likely seniority cannot be inferred with enough confidence, fail clearly instead of guessing.
+8. Record the inference reasons so a human can inspect why the run targeted those searches.
 
 ## Mandatory reject patterns
 

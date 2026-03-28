@@ -49,7 +49,22 @@ def load_runtime_config(project_root: Path):
     return data
 
 
-def normalize_record(raw, run_id):
+def load_latest_raw_payload(runs_dir: Path):
+    run_dirs = sorted(path for path in runs_dir.iterdir() if path.is_dir()) if runs_dir.exists() else []
+    if run_dirs:
+        latest = run_dirs[-1]
+        raw_path = latest / 'raw-results.json'
+        plan_path = latest / 'plan.json'
+        if not raw_path.exists():
+            raise SystemExit('No raw backend outputs found. Run search_backend_jobspy.py first.')
+        payload = json.loads(raw_path.read_text())
+        run = json.loads(plan_path.read_text()) if plan_path.exists() else {'runId': latest.name}
+        return latest, run, payload
+
+    raise SystemExit('No search runs found. Run prepare_search_run.py and search_backend_jobspy.py first.')
+
+
+def normalize_record(raw, run_id, query=None):
     now = datetime.now().astimezone().isoformat()
     title = raw.get('title') or raw.get('job_title') or 'Unknown Title'
     company = raw.get('company') or raw.get('company_name') or 'Unknown Company'
@@ -71,6 +86,12 @@ def normalize_record(raw, run_id):
         'summary': summary,
         'status': 'new',
         'runId': run_id,
+        'discoveryContext': {
+            'queryKind': (query or {}).get('kind'),
+            'querySearchTerm': (query or {}).get('searchTerm'),
+            'queryLocation': (query or {}).get('location'),
+            'queryReason': (query or {}).get('reason'),
+        },
     }
 
 
@@ -102,20 +123,25 @@ def reject_reason(item, candidate_model):
     return None
 
 
+def update_run_plan(plan_path: Path, run: dict, normalized_count: int, rejected_count: int, listings_dir: Path, normalized_path: Path, rejected_path: Path):
+    run['resultCount'] = normalized_count
+    run['rejectedCount'] = rejected_count
+    run.setdefault('artifacts', {})
+    run['artifacts'].update({
+        'normalizedJobsPath': str(normalized_path),
+        'rejectedJobsPath': str(rejected_path),
+        'listingsDir': str(listings_dir),
+    })
+    plan_path.write_text(json.dumps(run, indent=2) + '\n')
+
+
 def main():
     project_root = resolve_project_root()
     runtime = load_runtime_config(project_root)
     output_base = Path(runtime['outputBase'])
-    raw_dir = output_base / 'raw'
-    jobs_dir = output_base / 'jobs'
-    job_listings_dir = output_base / 'job-listings'
     runs_dir = output_base / 'search-runs'
 
-    raw_files = sorted(raw_dir.glob('*.json'))
-    if not raw_files:
-        raise SystemExit('No raw backend outputs found. Run search_backend_jobspy.py first.')
-    latest_raw = raw_files[-1]
-    payload = json.loads(latest_raw.read_text())
+    run_dir, run, payload = load_latest_raw_payload(runs_dir)
     run_id = payload['runId']
     candidate_model = payload.get('candidateModel') or {}
 
@@ -123,8 +149,9 @@ def main():
     rejected = []
     seen = set()
     for entry in payload.get('rawResults', []):
+        query = entry.get('query') or {}
         for item in entry.get('results', []):
-            normalized_item = normalize_record(item, run_id)
+            normalized_item = normalize_record(item, run_id, query=query)
             key = (normalized_item['url'] or f"{normalized_item['company']}::{normalized_item['title']}").lower()
             if key in seen:
                 continue
@@ -136,32 +163,28 @@ def main():
                     'title': normalized_item['title'],
                     'company': normalized_item['company'],
                     'url': normalized_item['url'],
+                    'discoveryContext': normalized_item['discoveryContext'],
                 })
                 continue
             normalized.append(normalized_item)
 
-    jobs_dir.mkdir(parents=True, exist_ok=True)
-    out = jobs_dir / f'{run_id}.json'
-    out.write_text(json.dumps(normalized, indent=2) + '\n')
+    normalized_path = run_dir / 'normalized-jobs.json'
+    rejected_path = run_dir / 'rejected-jobs.json'
+    listings_dir = run_dir / 'listings'
+    listings_dir.mkdir(parents=True, exist_ok=True)
 
-    per_listing_dir = job_listings_dir / run_id
-    per_listing_dir.mkdir(parents=True, exist_ok=True)
+    normalized_path.write_text(json.dumps(normalized, indent=2) + '\n')
+    rejected_path.write_text(json.dumps(rejected, indent=2) + '\n')
+
     for item in normalized:
-        listing_path = per_listing_dir / f"{item['id']}.json"
+        listing_path = listings_dir / f"{item['id']}.json"
         listing_path.write_text(json.dumps(item, indent=2) + '\n')
 
-    rejected_out = jobs_dir / f'{run_id}.rejected.json'
-    rejected_out.write_text(json.dumps(rejected, indent=2) + '\n')
+    plan_path = run_dir / 'plan.json'
+    if plan_path.exists():
+        update_run_plan(plan_path, run, len(normalized), len(rejected), listings_dir, normalized_path, rejected_path)
 
-    run_path = runs_dir / f'{run_id}.json'
-    if run_path.exists():
-        run = json.loads(run_path.read_text())
-        run['resultCount'] = len(normalized)
-        run['rejectedCount'] = len(rejected)
-        run['jobListingsPath'] = str(per_listing_dir)
-        run_path.write_text(json.dumps(run, indent=2) + '\n')
-
-    print(out)
+    print(normalized_path)
 
 
 if __name__ == '__main__':

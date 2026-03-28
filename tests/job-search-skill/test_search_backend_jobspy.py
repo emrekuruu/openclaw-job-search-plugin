@@ -51,6 +51,15 @@ def test_load_latest_run_requires_files(tmp_path):
         mod.load_latest_run(tmp_path)
 
 
+def test_load_latest_run_reads_per_run_plan(tmp_path):
+    run_dir = tmp_path / '2026-03-28-software-engineer'
+    run_dir.mkdir()
+    plan_path = run_dir / 'plan.json'
+    plan_path.write_text('{"runId": "2026-03-28-software-engineer"}')
+    run = mod.load_latest_run(tmp_path)
+    assert run['runId'] == '2026-03-28-software-engineer'
+
+
 def test_runtime_config_path_builder():
     root = Path('/tmp/project-root')
     assert mod.runtime_config_path(root).as_posix() == '/tmp/project-root/config/runtime.json'

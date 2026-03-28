@@ -1,6 +1,6 @@
 ---
 name: job-search-skill
-description: Retrieval-only, candidate-aware job discovery for the job-search-bot project. Use when an agent must read a candidate profile, infer likely seniority and role family from that profile, build a focused search plan, execute live retrieval through the project runtime, and save normalized listings for later review. Reject obvious seniority, experience, and role-family mismatches during retrieval cleanup. Do not use for scoring, application help, resume tailoring, or interview preparation. Fail clearly if the profile, runtime, or live backend is unavailable; never use silent fallbacks.
+description: Retrieval-only, candidate-aware job discovery for the job-search-bot project. Use when an agent must read a candidate profile, infer likely seniority and employment intent from that profile, build a focused search plan, execute live retrieval through the project runtime, and save normalized listings for later review. Reject obvious seniority, experience, and role-family mismatches during retrieval cleanup. Do not use for scoring, application help, resume tailoring, or interview preparation. Fail clearly if the profile, runtime, or live backend is unavailable; never use silent fallbacks.
 ---
 
 # Job Search Skill
@@ -9,7 +9,7 @@ Run **discovery only**.
 
 This skill owns:
 - profile reading
-- candidate seniority/role-family inference
+- candidate seniority / employment-intent / role-family inference
 - focused search planning
 - live retrieval through the project runtime
 - normalization plus obvious-mismatch rejection
@@ -26,15 +26,17 @@ This skill does **not** own:
 1. Resolve the project root from `JOB_SEARCH_BOT_ROOT`.
 2. Read `<project-root>/config/runtime.json` and use its `pythonPath`.
 3. Read the candidate profile before running anything.
-4. Infer candidate seniority, role family, stack/domain signals, preferred companies, locations, and work mode from the profile itself.
-5. Decide explicit retrieval filters from the profile, not just search text. Use structured filters such as site selection, remote/on-site intent, employment intent, job type, distance, recency, and company targeting when the backend supports them.
-6. Build a small, explicit search plan before retrieval.
-7. Reject obvious mismatches during cleanup, especially:
+4. Infer candidate seniority, employment intent, role family, stack/domain signals, preferred companies, locations, and work mode from the profile itself.
+5. Default to **full-time** unless the profile explicitly signals **internship** or **contract** intent.
+6. Decide explicit retrieval filters from the profile, not just search text. Use structured filters such as site selection, remote/on-site intent, employment intent, job type, distance, recency, and company targeting when the backend supports them.
+7. Build a small, explicit search plan before retrieval.
+8. Reject obvious mismatches during cleanup, especially:
    - `senior`, `sr`, `lead`, `staff`, `principal`, `manager`, `head`, `director`
    - experience requirements clearly above the candidate profile
    - role families outside the candidate target
-8. Fail clearly when inference, runtime resolution, or the live backend is missing or broken.
-9. Never fabricate fallback data.
+9. Save each run into a coherent per-run folder so the candidate inference, filters, queries, raw results, kept jobs, rejected jobs, and listing files are easy to inspect.
+10. Fail clearly when inference, runtime resolution, or the live backend is missing or broken.
+11. Never fabricate fallback data.
 
 ## Use the workflow
 

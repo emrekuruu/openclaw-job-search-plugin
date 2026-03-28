@@ -10,7 +10,15 @@ SCRIPT_PATH = Path(__file__).resolve()
 SKILL_ROOT = SCRIPT_PATH.parents[1]
 
 SENIORITY_PATTERNS = {
-    'junior': [r'\bjunior\b', r'\bentry[- ]level\b', r'\bnew grad\b', r'\bintern(ship)?\b'],
+    'junior': [
+        r'\bjunior\b',
+        r'\bentry[- ]level\b',
+        r'\bearly[- ]career\b',
+        r'\brecent graduate\b',
+        r'\bnew grad\b',
+        r'\bgraduate\b',
+        r'\bgraduate role\b',
+    ],
     'mid': [r'\bmid\b', r'\bmid[- ]level\b'],
     'senior': [r'\bsenior\b', r'\bsr\.?\b', r'\blead\b', r'\bstaff\b', r'\bprincipal\b', r'\bmanager\b'],
 }
@@ -33,15 +41,20 @@ TITLE_AVOID_PATTERNS = ['senior', 'sr', 'lead', 'staff', 'principal', 'manager',
 TECH_TERMS = ['python', 'java', 'spring', 'spring boot', 'react', 'node', 'node.js', 'typescript', 'javascript', 'aws', 'sql', 'postgres', 'docker', 'kubernetes']
 DOMAIN_TERMS = ['fintech', 'banking', 'payments', 'e-commerce', 'healthtech', 'saas', 'ai', 'machine learning']
 WORK_MODE_TERMS = ['remote', 'hybrid', 'on-site', 'onsite', 'on premise']
-EMPLOYMENT_INTENT_PATTERNS = {
-    'internship': [r'\bintern(ship)?\b', r'\bplacement\b', r'\bco-?op\b', r'\bstudent\b'],
-    'junior-fulltime': [r'\bjunior\b', r'\bentry[- ]level\b', r'\bgraduate role\b', r'\bnew grad\b'],
-    'contract': [r'\bcontract\b', r'\bfreelance\b', r'\bconsult(ing|ant)?\b'],
-}
+INTERNSHIP_PATTERNS = [r'\binternship\b', r'\bintern\b', r'\bco-?op\b', r'\bplacement\b']
+CONTRACT_PATTERNS = [r'\bcontract\b', r'\bfreelance\b', r'\bconsult(ing|ant)?\b']
+EARLY_CAREER_PATTERNS = [
+    r'\bearly[- ]career\b',
+    r'\brecent graduate\b',
+    r'\bnew grad\b',
+    r'\bgraduate\b',
+    r'\bentry[- ]level\b',
+    r'\bjunior\b',
+    r'\bstudent\b',
+]
 EMPLOYMENT_INTENT_TO_JOB_TYPE = {
     'internship': 'internship',
-    'junior-fulltime': 'fulltime',
-    'fulltime': 'fulltime',
+    'full-time': 'fulltime',
     'contract': 'contract',
 }
 SENIORITY_TO_MAX_DISTANCE = {
@@ -126,6 +139,20 @@ def extract_section_bullets(lines: Iterable[str], section_heading: str):
     return values
 
 
+def extract_section_text(lines: Iterable[str], section_heading: str):
+    values = []
+    in_section = False
+    for line in lines:
+        if line.startswith('## '):
+            if in_section:
+                break
+            in_section = (line.strip() == section_heading)
+            continue
+        if in_section:
+            values.append(line.strip())
+    return '\n'.join(value for value in values if value)
+
+
 def unique_preserve(values):
     seen = set()
     ordered = []
@@ -154,16 +181,18 @@ def first_years_of_experience(text: str):
 def infer_seniority(text: str, experience_years: int | None):
     lowered = text.lower()
     if any(re.search(pattern, lowered) for pattern in SENIORITY_PATTERNS['senior']):
-        return 'senior', 'high'
+        return 'senior', 'high', 'Explicit senior-level wording in the profile.'
     if any(re.search(pattern, lowered) for pattern in SENIORITY_PATTERNS['junior']):
-        return 'junior', 'high'
+        return 'junior', 'high', 'Explicit junior / early-career wording in the profile.'
+    if any(re.search(pattern, lowered) for pattern in EARLY_CAREER_PATTERNS):
+        return 'junior', 'medium', 'Profile contains student / graduate / early-career signals.'
     if experience_years is not None:
         if experience_years <= 2:
-            return 'junior', 'medium'
+            return 'junior', 'medium', f'Profile shows {experience_years} year(s) of experience.'
         if experience_years <= 5:
-            return 'mid', 'medium'
-        return 'senior', 'medium'
-    return None, 'low'
+            return 'mid', 'medium', f'Profile shows {experience_years} year(s) of experience.'
+        return 'senior', 'medium', f'Profile shows {experience_years} year(s) of experience.'
+    return None, 'low', 'No reliable seniority evidence found in the profile.'
 
 
 def infer_role_family(text: str, desired_roles):
@@ -201,13 +230,13 @@ def guess_locations(preferred_locations, text: str):
 
 def infer_employment_intent(text: str, seniority: str):
     lowered = text.lower()
-    if any(re.search(pattern, lowered) for pattern in EMPLOYMENT_INTENT_PATTERNS['internship']):
-        return 'internship'
-    if any(re.search(pattern, lowered) for pattern in EMPLOYMENT_INTENT_PATTERNS['contract']):
-        return 'contract'
-    if seniority == 'junior':
-        return 'junior-fulltime'
-    return 'contract' if seniority == 'senior' and 'contract' in lowered else 'fulltime'
+    if any(re.search(pattern, lowered) for pattern in INTERNSHIP_PATTERNS):
+        return 'internship', 'Explicit internship signal in the profile.'
+    if any(re.search(pattern, lowered) for pattern in CONTRACT_PATTERNS):
+        return 'contract', 'Explicit contract / freelance signal in the profile.'
+    if seniority == 'junior' or any(re.search(pattern, lowered) for pattern in EARLY_CAREER_PATTERNS):
+        return 'full-time', 'Defaulted early-career candidate to full-time because internship was not explicitly requested.'
+    return 'full-time', 'Defaulted to full-time because internship was not explicitly requested.'
 
 
 def derive_core_queries(role_families, tech_focus, preferred_companies, locations, seniority):
@@ -224,17 +253,23 @@ def derive_core_queries(role_families, tech_focus, preferred_companies, location
 
     if tech_focus:
         preferred_stack = tech_focus[:2]
-        base_titles.extend([f"{' '.join(term.title() for term in preferred_stack)} {primary_role.title()}".strip()])
+        base_titles.append(f"{' '.join(term.title() for term in preferred_stack)} {primary_role.title()}".strip())
 
     locations = locations[:2] or ['Remote']
     queries = []
     for title in unique_preserve(base_titles)[:3]:
         for location in locations:
+            kind = 'role-core' if title == base_titles[0] else 'role-tech'
+            reason = (
+                f'Primary target role {primary_role} with {seniority} seniority inferred from the profile.'
+                if kind == 'role-core'
+                else f'Stack-aware variant based on candidate technologies: {", ".join(tech_focus[:2])}.'
+            )
             queries.append({
-                'kind': 'role-core' if title == base_titles[0] else 'role-tech',
+                'kind': kind,
                 'searchTerm': title,
                 'location': location,
-                'reason': f'Candidate target role: {primary_role}; inferred seniority: {seniority}',
+                'reason': reason,
             })
 
     for company in preferred_companies[:3]:
@@ -242,7 +277,7 @@ def derive_core_queries(role_families, tech_focus, preferred_companies, location
             'kind': 'company-targeted',
             'searchTerm': f'{primary_role.title()} {company}',
             'location': locations[0],
-            'reason': 'Preferred company from candidate profile',
+            'reason': f'Preferred company from the profile: {company}.',
         })
 
     return unique_preserve_dicts(queries)[:8]
@@ -261,8 +296,17 @@ def unique_preserve_dicts(items):
 
 
 def build_candidate_model(profile_text: str, lines, desired_roles, target_companies, preferred_locations, work_modes):
+    identity_text = extract_section_text(lines, '## Identity')
+    target_text = extract_section_text(lines, '## Target Direction')
+    preferences_text = extract_section_text(lines, '## Preferences')
+    constraints_text = extract_section_text(lines, '## Constraints')
+    notes_text = extract_section_text(lines, '## Notes')
+    experience_text = extract_section_text(lines, '## Experience Summary')
+
+    inference_text = '\n'.join(part for part in [identity_text, target_text, preferences_text, notes_text] if part) or profile_text
     experience_years = first_years_of_experience(profile_text)
-    seniority, confidence = infer_seniority(profile_text, experience_years)
+    seniority_text = '\n'.join(part for part in [identity_text, target_text, notes_text] if part) or profile_text
+    seniority, confidence, seniority_reason = infer_seniority(seniority_text, experience_years)
     if not seniority:
         raise SystemExit('Could not infer candidate seniority from the profile. Add explicit experience or level signals before retrieval.')
 
@@ -276,7 +320,7 @@ def build_candidate_model(profile_text: str, lines, desired_roles, target_compan
     domain_focus = collect_terms(profile_text, DOMAIN_TERMS)
     preferred_companies = unique_preserve(target_companies)
     max_accepted_experience_years = 3 if seniority == 'junior' else 5 if seniority == 'mid' else 8
-    employment_intent = infer_employment_intent(profile_text, seniority)
+    employment_intent, employment_reason = infer_employment_intent(inference_text, seniority)
     retrieval_filters = {
         'siteNames': ['linkedin'],
         'isRemote': 'remote' in [mode.lower() for mode in work_modes],
@@ -286,6 +330,14 @@ def build_candidate_model(profile_text: str, lines, desired_roles, target_compan
         'easyApply': False,
         'hoursOld': 24 * 30,
         'linkedinFetchDescription': True,
+    }
+
+    inference = {
+        'seniorityReason': seniority_reason,
+        'employmentIntentReason': employment_reason,
+        'roleFamilyReason': f'Role family inferred from desired roles and profile keywords: {", ".join(role_family)}.',
+        'locationsReason': 'Locations came from explicit profile preferences.' if preferred_locations else 'Locations were inferred from free-text profile mentions.',
+        'workModesReason': 'Work modes came from explicit profile preferences.' if work_modes else 'Work modes were inferred from profile text.',
     }
 
     return {
@@ -298,10 +350,25 @@ def build_candidate_model(profile_text: str, lines, desired_roles, target_compan
         'preferredCompanies': preferred_companies,
         'locations': locations,
         'workModes': work_modes,
+        'employmentIntent': employment_intent,
         'avoidTitlePatterns': TITLE_AVOID_PATTERNS,
         'avoidRoleFamilies': infer_avoid_role_families(profile_text, role_family),
         'maxAcceptedExperienceYears': max_accepted_experience_years,
         'retrievalFilters': retrieval_filters,
+        'inference': inference,
+    }
+
+
+def build_run_artifact_paths(output_base: Path, run_id: str):
+    run_dir = output_base / 'search-runs' / run_id
+    return {
+        'runDir': run_dir,
+        'planPath': run_dir / 'plan.json',
+        'rawResultsPath': run_dir / 'raw-results.json',
+        'normalizedJobsPath': run_dir / 'normalized-jobs.json',
+        'rejectedJobsPath': run_dir / 'rejected-jobs.json',
+        'listingsDir': run_dir / 'listings',
+        'summaryPath': run_dir / 'summary.md',
     }
 
 
@@ -309,7 +376,7 @@ def main():
     project_root = resolve_project_root()
     runtime = load_runtime_config(project_root)
     profile = Path(runtime['defaultProfile'])
-    runs_dir = Path(runtime['outputBase']) / 'search-runs'
+    output_base = Path(runtime['outputBase'])
 
     if not profile.exists():
         raise SystemExit(f'Profile not found: {profile}')
@@ -336,6 +403,7 @@ def main():
     primary_role = candidate_model['roleFamily'][0]
     now = datetime.now().astimezone()
     run_id = f"{now.date().isoformat()}-{slugify(primary_role)}"
+    artifact_paths = build_run_artifact_paths(output_base, run_id)
 
     run = {
         'runId': run_id,
@@ -361,13 +429,13 @@ def main():
             'rejectObviousRoleFamilyMismatch': True,
             'rejectExperienceMismatch': True,
         },
-        'notes': 'Prepared from candidate-aware profile inference. Retrieval only; no evaluation fallback.',
+        'artifacts': {key: str(value) for key, value in artifact_paths.items()},
+        'notes': 'Prepared from profile-driven candidate inference. Internship only when explicitly signaled; otherwise default to full-time.',
     }
 
-    runs_dir.mkdir(parents=True, exist_ok=True)
-    out = runs_dir / f'{run_id}.json'
-    out.write_text(json.dumps(run, indent=2) + '\n')
-    print(out)
+    artifact_paths['runDir'].mkdir(parents=True, exist_ok=True)
+    artifact_paths['planPath'].write_text(json.dumps(run, indent=2) + '\n')
+    print(artifact_paths['planPath'])
 
 
 if __name__ == '__main__':

@@ -20,33 +20,34 @@ From the project root, use the runtime-configured Python interpreter and run:
 Fail clearly if any script fails.
 
 Step 2 — Resolve the current run
-Read the latest normalized jobs JSON from:
-- `runtime-data/jobs/*.json`
+Read the latest run directory from:
+- `runtime-data/search-runs/<runId>/`
 
-Use the latest file as the active run and derive:
+Use the latest run folder as the active run and derive:
 - `runId`
-- normalized jobs
-- corresponding run file:
-  - `runtime-data/search-runs/<runId>.json`
+- `plan.json`
+- `normalized-jobs.json`
+- `listings/`
 
-From the run file, extract:
+From `plan.json`, extract:
 - `profilePath`
 - `candidateModel`
-- `jobListingsPath` if present
+- `artifacts.listingsDir` if present
 
-If `jobListingsPath` is not present, assume:
-- `runtime-data/job-listings/<runId>/`
+If `artifacts.listingsDir` is not present, assume:
+- `runtime-data/search-runs/<runId>/listings/`
 
 Fail clearly if:
-- the run file is missing
-- the normalized jobs file is missing
+- the run folder is missing
+- `plan.json` is missing
+- `normalized-jobs.json` is missing
 - `profilePath` is missing
 - the per-listing directory is missing
 - no listing files are present
 
 Step 3 — Use one listing file per sub-agent
 Each listing should already exist as its own JSON file under:
-- `runtime-data/job-listings/<runId>/<listingId>.json`
+- `runtime-data/search-runs/<runId>/listings/<listingId>.json`
 
 Spawn exactly one sub-agent per listing file.
 
@@ -75,11 +76,12 @@ Minimum required JSON shape:
 }
 
 Optional fields:
-- `dimensions`
+- `dimensions` (0-100 only)
 - `flags`
 
 Rules:
 - one listing only
+- single 0-100 score system only
 - no markdown
 - no prose outside JSON
 - concise, specific reasoning
@@ -123,9 +125,9 @@ Run the existing export step:
 That script prefers:
 - `runtime-data/final-results/<runId>.json`
 
-and falls back to raw jobs only if no final-results artifact exists.
+and falls back to the latest per-run `normalized-jobs.json` if no final-results artifact exists.
 
-So ensure the final-results file is written before export.
+So ensure the final-results file is written before export when evaluation succeeds.
 
 Success means an Excel file is created under:
 - `runtime-data/exports/`
@@ -133,9 +135,8 @@ Success means an Excel file is created under:
 Operational rules
 - Do not invent fallback data.
 - Do not silently skip failed steps.
-- Do not build new backend architecture unless absolutely necessary.
 - Keep orchestration thin.
-- Use the repo’s existing search scripts and export script.
+- Use the repo’s existing scripts and artifact structure.
 - One sub-agent per listing file.
 - Prefer clear artifacts over prompt stuffing.
 

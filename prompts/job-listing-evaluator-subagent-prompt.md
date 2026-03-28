@@ -20,11 +20,12 @@ Minimum required output:
 }
 
 Optional fields:
-- `dimensions`
+- `dimensions` (0-100 dimension scores only)
 - `flags`
 
 Rules:
 - evaluate exactly one listing
+- use a single 0-100 score system everywhere
 - no markdown
 - no explanation outside JSON
 - keep reasoning concise and specific

@@ -35,8 +35,25 @@ Expected project runtime files under the resolved project root:
 - `config/search-defaults.json`
 - `runtime-data/profiles/`
 - `runtime-data/search-runs/`
-- `runtime-data/raw/`
-- `runtime-data/jobs/`
+- `runtime-data/final-results/`
+- `runtime-data/exports/`
+
+## Per-run artifact layout
+
+Each retrieval run should now live under:
+
+- `runtime-data/search-runs/<runId>/`
+
+Expected artifacts inside that folder:
+
+- `plan.json` — candidate inference, retrieval filters, query plan, artifact paths
+- `raw-results.json` — backend requests and raw results grouped by query
+- `normalized-jobs.json` — deduplicated kept listings
+- `rejected-jobs.json` — obvious mismatches rejected during retrieval cleanup
+- `listings/` — one normalized JSON file per kept listing
+- `summary.md` — human-readable run summary
+
+This structure is meant to make it obvious why the run searched what it searched and what happened to each result.
 
 ## Runtime config rule
 
@@ -65,4 +82,4 @@ Known current limitations:
 
 - source noise and regional failures may occur
 - deduplication and cleanup are still lightweight
-- profile-aware search planning still needs to become more explicit in execution, not just in the skill instructions
+- evaluation/final-results remain separate from retrieval runs for now

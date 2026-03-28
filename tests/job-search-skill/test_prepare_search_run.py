@@ -43,11 +43,12 @@ def test_derive_core_queries_contains_company_targeted_entries():
     )
     assert queries
     assert any(q['kind'] == 'company-targeted' for q in queries)
+    assert any('Primary target role software engineer' in q['reason'] for q in queries if q['kind'] == 'role-core')
 
 
-def test_build_candidate_model_defaults_junior_to_fulltime_not_internship():
+def test_build_candidate_model_defaults_junior_to_full_time_not_internship():
     profile_text = """
-    Junior software engineer with 2 years of experience in Java and React.
+    Early-career software engineer with 2 years of experience in Java and React.
     Looking for hybrid or remote roles in Istanbul fintech companies.
     """
     model = mod.build_candidate_model(
@@ -59,11 +60,14 @@ def test_build_candidate_model_defaults_junior_to_fulltime_not_internship():
         work_modes=['hybrid', 'remote'],
     )
     filters = model['retrievalFilters']
+    assert model['seniority'] == 'junior'
+    assert model['employmentIntent'] == 'full-time'
     assert filters['siteNames'] == ['linkedin']
     assert filters['isRemote'] is True
-    assert filters['employmentIntent'] == 'junior-fulltime'
+    assert filters['employmentIntent'] == 'full-time'
     assert filters['jobType'] == 'fulltime'
     assert filters['distance'] == 25
+    assert 'full-time' in model['inference']['employmentIntentReason']
 
 
 def test_build_candidate_model_detects_internship_intent_explicitly():
@@ -80,5 +84,13 @@ def test_build_candidate_model_detects_internship_intent_explicitly():
         work_modes=['hybrid'],
     )
     filters = model['retrievalFilters']
+    assert model['employmentIntent'] == 'internship'
     assert filters['employmentIntent'] == 'internship'
     assert filters['jobType'] == 'internship'
+
+
+def test_build_run_artifact_paths_are_per_run():
+    paths = mod.build_run_artifact_paths(Path('/tmp/runtime-data'), '2026-03-28-software-engineer')
+    assert paths['runDir'].as_posix() == '/tmp/runtime-data/search-runs/2026-03-28-software-engineer'
+    assert paths['planPath'].as_posix().endswith('/search-runs/2026-03-28-software-engineer/plan.json')
+    assert paths['listingsDir'].as_posix().endswith('/search-runs/2026-03-28-software-engineer/listings')

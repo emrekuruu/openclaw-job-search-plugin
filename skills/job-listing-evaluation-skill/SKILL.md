@@ -1,6 +1,6 @@
 ---
 name: job-listing-evaluation-skill
-description: Evaluate collected job listings against a candidate profile after retrieval is complete. Use when an agent already has a candidate profile plus one or more job listings and must decide keep/drop, assign a score, and explain the judgment concisely and consistently. This skill is for fit evaluation, not live job retrieval, applications, resume tailoring, or interview prep.
+description: Evaluate collected job listings against a candidate profile after retrieval is complete. Use when an agent already has a candidate profile plus one or more job listings and must decide keep/drop, assign a single consistent 0-100 score, and explain the judgment concisely and consistently. This skill is for fit evaluation, not live retrieval, applications, resume tailoring, or interview prep.
 ---
 
 # Job Listing Evaluation Skill
@@ -10,13 +10,13 @@ Evaluate listings **after** retrieval.
 ## Follow this workflow
 
 1. Read the candidate profile first.
-2. Read the collected listings.
-3. Score each listing against the same rubric.
+2. Read the collected listing.
+3. Score the listing on a **single 0-100 scale**.
 4. Output one record per listing with:
    - `decision`
-   - `score`
+   - `score` (0-100)
    - `reasoning`
-   - rubric subscores or dimension notes
+   - optional dimension breakdowns that also use 0-100 values
 5. Keep reasoning concise and specific.
 6. Make hard mismatches explicit; do not hide them behind a middling score.
 

@@ -41,11 +41,19 @@ def load_runtime_config(project_root: Path):
 
 
 def load_latest_run(runs_dir: Path):
-    run_files = sorted(runs_dir.glob('*.json'))
-    if not run_files:
-        raise SystemExit('No search runs found. Run prepare_search_run.py first.')
-    latest = run_files[-1]
-    return json.loads(latest.read_text())
+    run_dirs = sorted(path for path in runs_dir.iterdir() if path.is_dir()) if runs_dir.exists() else []
+    if run_dirs:
+        latest = run_dirs[-1]
+        plan_path = latest / 'plan.json'
+        if not plan_path.exists():
+            raise SystemExit(f'Latest run directory is missing plan.json: {latest}')
+        return json.loads(plan_path.read_text())
+
+    legacy_run_files = sorted(runs_dir.glob('*.json')) if runs_dir.exists() else []
+    if legacy_run_files:
+        return json.loads(legacy_run_files[-1].read_text())
+
+    raise SystemExit('No search runs found. Run prepare_search_run.py first.')
 
 
 def load_search_config(runtime):
@@ -104,13 +112,16 @@ def dataframe_to_records(df):
     return json.loads(df.to_json(orient='records', date_format='iso'))
 
 
-def live_execute(requests):
+def live_execute(run, requests):
     payload = []
     failures = []
-    for request in requests:
+    queries = run.get('queries') or []
+    for index, request in enumerate(requests):
+        query = queries[index] if index < len(queries) else {}
         try:
             df = scrape_jobs(**request)
             payload.append({
+                'query': query,
                 'request': request,
                 'mode': 'live',
                 'results': dataframe_to_records(df),
@@ -118,6 +129,7 @@ def live_execute(requests):
         except Exception as e:
             failures.append({'request': request, 'error': repr(e)})
             payload.append({
+                'query': query,
                 'request': request,
                 'mode': 'error',
                 'error': repr(e),
@@ -127,7 +139,18 @@ def live_execute(requests):
     if not any(entry.get('mode') == 'live' and entry.get('results') for entry in payload):
         raise SystemExit(f'Live job search failed or returned no results for all requests: {failures}')
 
-    return payload
+    return payload, failures
+
+
+def resolve_artifact_paths(run, output_base: Path):
+    artifacts = run.get('artifacts') or {}
+    run_id = run['runId']
+    run_dir = Path(artifacts.get('runDir') or (output_base / 'search-runs' / run_id))
+    return {
+        'runDir': run_dir,
+        'planPath': Path(artifacts.get('planPath') or (run_dir / 'plan.json')),
+        'rawResultsPath': Path(artifacts.get('rawResultsPath') or (run_dir / 'raw-results.json')),
+    }
 
 
 def main():
@@ -135,28 +158,28 @@ def main():
     runtime = load_runtime_config(project_root)
     output_base = Path(runtime['outputBase'])
     runs_dir = output_base / 'search-runs'
-    raw_dir = output_base / 'raw'
 
     run = load_latest_run(runs_dir)
     config = load_search_config(runtime)
-    run_id = run['runId']
     requests = build_requests(run, config)
-    raw_results = live_execute(requests)
+    raw_results, failures = live_execute(run, requests)
+    artifact_paths = resolve_artifact_paths(run, output_base)
 
     raw_payload = {
-        'runId': run_id,
+        'runId': run['runId'],
         'backend': 'jobspy-project-adapter',
         'mode': 'live',
         'candidateModel': run.get('candidateModel', {}),
+        'retrievalFilters': run.get('retrievalFilters', {}),
         'queries': run.get('queries', []),
         'requests': requests,
         'rawResults': raw_results,
+        'failures': failures,
     }
 
-    raw_dir.mkdir(parents=True, exist_ok=True)
-    out = raw_dir / f'{run_id}.json'
-    out.write_text(json.dumps(raw_payload, indent=2) + '\n')
-    print(out)
+    artifact_paths['runDir'].mkdir(parents=True, exist_ok=True)
+    artifact_paths['rawResultsPath'].write_text(json.dumps(raw_payload, indent=2) + '\n')
+    print(artifact_paths['rawResultsPath'])
 
 
 if __name__ == '__main__':

@@ -38,25 +38,36 @@ def load_runtime_config(project_root: Path):
     return data
 
 
+def load_latest_run_dir(runs_dir: Path) -> Path:
+    run_dirs = sorted(path for path in runs_dir.iterdir() if path.is_dir()) if runs_dir.exists() else []
+    if not run_dirs:
+        raise SystemExit('No search runs found.')
+    return run_dirs[-1]
+
+
 def main():
     project_root = resolve_project_root()
     runtime = load_runtime_config(project_root)
     output_base = Path(runtime['outputBase'])
     runs_dir = output_base / 'search-runs'
-    jobs_dir = output_base / 'jobs'
 
-    run_files = sorted(runs_dir.glob('*.json'))
-    if not run_files:
-        raise SystemExit('No search runs found.')
-    latest = run_files[-1]
-    run = json.loads(latest.read_text())
+    run_dir = load_latest_run_dir(runs_dir)
+    plan_path = run_dir / 'plan.json'
+    normalized_path = run_dir / 'normalized-jobs.json'
+    rejected_path = run_dir / 'rejected-jobs.json'
+    raw_path = run_dir / 'raw-results.json'
+
+    if not plan_path.exists():
+        raise SystemExit(f'Run plan not found: {plan_path}')
+
+    run = json.loads(plan_path.read_text())
     run_id = run['runId']
-
-    jobs_path = jobs_dir / f'{run_id}.json'
-    rejected_path = jobs_dir / f'{run_id}.rejected.json'
-    jobs = json.loads(jobs_path.read_text()) if jobs_path.exists() else []
+    jobs = json.loads(normalized_path.read_text()) if normalized_path.exists() else []
     rejected = json.loads(rejected_path.read_text()) if rejected_path.exists() else []
+    raw_payload = json.loads(raw_path.read_text()) if raw_path.exists() else {}
     candidate_model = run.get('candidateModel') or {}
+    filters = run.get('retrievalFilters') or {}
+    inference = candidate_model.get('inference') or {}
 
     lines = []
     lines.append(f'# Search Run Summary - {run_id}')
@@ -67,33 +78,55 @@ def main():
     lines.append(f"- Backend: `{run.get('backend')}`")
     lines.append(f"- Profile path: `{run.get('profilePath')}`")
     lines.append('')
-    lines.append('## Candidate Model')
-    lines.append(f"- Seniority: {candidate_model.get('seniority', 'unknown')}")
+    lines.append('## Candidate Inference')
+    lines.append(f"- Seniority: {candidate_model.get('seniority', 'unknown')} ({candidate_model.get('confidence', 'unknown')} confidence)")
+    lines.append(f"- Employment intent: {candidate_model.get('employmentIntent', 'unknown')}")
     lines.append(f"- Role family: {', '.join(candidate_model.get('roleFamily', []))}")
     lines.append(f"- Experience years: {candidate_model.get('experienceYears')}")
     lines.append(f"- Tech focus: {', '.join(candidate_model.get('techFocus', []))}")
     lines.append(f"- Domain focus: {', '.join(candidate_model.get('domainFocus', []))}")
+    lines.append(f"- Inference notes: {inference.get('seniorityReason', 'n/a')} | {inference.get('employmentIntentReason', 'n/a')}")
     lines.append('')
-    lines.append('## Search Plan')
+    lines.append('## Retrieval Filters')
+    for key, value in filters.items():
+        lines.append(f'- {key}: {value}')
+    lines.append('')
+    lines.append('## Query Plan')
     lines.append(f"- Query count: {len(run.get('queries', []))}")
     for query in run.get('queries', [])[:8]:
         lines.append(f"- [{query['kind']}] {query['searchTerm']} @ {query['location']} — {query['reason']}")
     lines.append('')
+    lines.append('## Retrieval Execution')
+    lines.append(f"- Requests executed: {len(raw_payload.get('requests', []))}")
+    lines.append(f"- Query payloads recorded in: `{raw_path}`")
+    lines.append('')
     lines.append('## Results')
-    lines.append(f'- Total kept after normalization: {len(jobs)}')
-    lines.append(f'- Total rejected as obvious mismatch: {len(rejected)}')
+    lines.append(f'- Kept after normalization: {len(jobs)}')
+    lines.append(f'- Rejected as obvious mismatch: {len(rejected)}')
     for job in jobs[:10]:
-        lines.append(f"- KEEP: {job['title']} — {job['company']} — {job['location']} — {job['source']}")
+        context = job.get('discoveryContext') or {}
+        lines.append(
+            f"- KEEP: {job['title']} — {job['company']} — {job['location']} — {job['source']} "
+            f"(via {context.get('querySearchTerm', 'unknown query')})"
+        )
     if rejected:
         lines.append('')
         lines.append('## Rejected examples')
         for item in rejected[:10]:
-            lines.append(f"- DROP: {item['title']} — {item['company']} — {item['reason']}")
+            context = item.get('discoveryContext') or {}
+            lines.append(
+                f"- DROP: {item['title']} — {item['company']} — {item['reason']} "
+                f"(via {context.get('querySearchTerm', 'unknown query')})"
+            )
+    lines.append('')
+    lines.append('## Artifacts')
+    for key, value in (run.get('artifacts') or {}).items():
+        lines.append(f'- {key}: `{value}`')
     lines.append('')
     lines.append('## Notes')
     lines.append(f"- {run.get('notes', '')}")
 
-    out = runs_dir / f'{run_id}.md'
+    out = run_dir / 'summary.md'
     out.write_text('\n'.join(lines) + '\n')
     print(out)
 

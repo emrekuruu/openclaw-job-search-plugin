@@ -50,8 +50,16 @@ def load_export_source(output_base: Path):
             if isinstance(final_listings, list):
                 return source_file, final_listings, 'final-results'
 
+    run_dirs = sorted(path for path in (output_base / 'search-runs').iterdir() if path.is_dir()) if (output_base / 'search-runs').exists() else []
+    if run_dirs:
+        source_file = run_dirs[-1] / 'normalized-jobs.json'
+        if source_file.exists():
+            jobs = json.loads(source_file.read_text())
+            if isinstance(jobs, list):
+                return source_file, jobs, 'search-run-normalized-jobs'
+
     jobs_dir = output_base / 'jobs'
-    job_files = sorted(jobs_dir.glob('*.json'))
+    job_files = sorted(jobs_dir.glob('*.json')) if jobs_dir.exists() else []
     if not job_files:
         raise SystemExit('No job files found to export.')
     source_file = job_files[-1]
@@ -59,6 +67,12 @@ def load_export_source(output_base: Path):
     if not isinstance(jobs, list):
         raise SystemExit(f'Export source must be a list of jobs: {source_file}')
     return source_file, jobs, 'jobs'
+
+
+def run_id_from_source(source_file: Path):
+    if source_file.name == 'normalized-jobs.json':
+        return source_file.parent.name
+    return source_file.stem
 
 
 def main():
@@ -69,7 +83,7 @@ def main():
     exports_dir.mkdir(parents=True, exist_ok=True)
 
     source_file, jobs, source_kind = load_export_source(output_base)
-    run_id = source_file.stem
+    run_id = run_id_from_source(source_file)
 
     fields = ['title', 'company', 'location', 'workMode', 'source', 'postedDate', 'url', 'summary', 'score', 'decision', 'reasoning']
     xlsx_path = exports_dir / f'{run_id}.xlsx'
