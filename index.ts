@@ -256,7 +256,8 @@ export default definePluginEntry({
             exportsDir: artifacts.exportsDir,
           },
         });
-        return { content: [{ type: "text", text: JSON.stringify({ runId, searchPath: artifacts.searchPath, listingsDir: artifacts.listingsDir }) }] };
+        const details = { runId, searchPath: artifacts.searchPath, listingsDir: artifacts.listingsDir };
+        return { content: [{ type: "text", text: JSON.stringify(details) }], details };
       },
     });
 
@@ -272,7 +273,7 @@ export default definePluginEntry({
         const searchPath = path.join(runDir, "search.json");
         requireExistingFile(searchPath, "search.json");
         const result = await runPythonJobSpy(repoRoot(), cfg.stateDir);
-        return { content: [{ type: "text", text: JSON.stringify(result) }] };
+        return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
       },
     });
 
@@ -288,7 +289,7 @@ export default definePluginEntry({
       async execute(_id, params) {
         const cfg = resolvePluginConfig(api);
         const result = await spawnEvaluators(api, cfg.stateDir, params as Json);
-        return { content: [{ type: "text", text: JSON.stringify(result) }] };
+        return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
       },
     });
 
@@ -301,7 +302,8 @@ export default definePluginEntry({
       async execute(_id, params) {
         const cfg = resolvePluginConfig(api);
         const outputPath = exportRun(cfg.stateDir, String(params.runId));
-        return { content: [{ type: "text", text: JSON.stringify({ runId: params.runId, outputPath }) }] };
+        const details = { runId: params.runId, outputPath };
+        return { content: [{ type: "text", text: JSON.stringify(details) }], details };
       },
     });
 
@@ -346,13 +348,15 @@ export default definePluginEntry({
           timeoutMs: params.timeoutMs,
         });
         const exportPath = exportRun(cfg.stateDir, runId);
+        const details = { runId, retrieval, evaluation, exportPath };
         return {
           content: [
             {
               type: "text",
-              text: JSON.stringify({ runId, retrieval, evaluation, exportPath }),
+              text: JSON.stringify(details),
             },
           ],
+          details,
         };
       },
     });

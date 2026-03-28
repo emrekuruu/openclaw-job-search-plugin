@@ -1,10 +1,5 @@
 node_modules/
-**/DS_Store
-**/.DS_Store
+.DS_Store
 .vscode/
 
-# Legacy local runtime folder from the pre-plugin pipeline.
-# The plugin now writes runtime artifacts under the OpenClaw state dir instead.
-runtime-data/
-runtime-data/**
-!.gitkeep
+node_modules/
