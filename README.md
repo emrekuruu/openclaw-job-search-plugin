@@ -1,52 +1,44 @@
 # job-search-bot
 
-This repo is a native OpenClaw plugin. It now keeps only the plugin entry, manifest, static defaults, the evaluator prompt, thin supporting skills, and demo assets.
+This repo is now a native OpenClaw plugin for concurrent job-search runs.
 
-## Plugin structure
+## Architecture
 
-- `index.ts` — native plugin entry and deterministic workflow engine
-- `openclaw.plugin.json` — plugin manifest and config schema
-- `config/search-defaults.json` — repo-owned static retrieval defaults
-- `prompts/job-listing-evaluator-subagent-prompt.md` — evaluator subagent prompt template
-- `skills/` — thin agent-facing skills retained for plugin-era flows
-- `assets/profiles/sample-software-engineer-profile.md` — optional example profile only
+### Plugin owns
+- run creation
+- state-dir artifact layout
+- evaluator fanout
+- export / aggregation
 
-## Runtime artifact layout
+### Job-search skill owns
+- JobSpy retrieval execution via a Python worker script
+- retrieval-specific guidance for the agent
 
-Operational artifacts are written under the OpenClaw state dir, inside a plugin-owned folder:
+This split keeps the plugin as the deterministic engine while leaving the Python-native JobSpy integration in the skill where it fits naturally.
 
-- `<OPENCLAW_STATE_DIR>/plugin-runtimes/job-search/search-runs/<runId>/search.json`
-- `<OPENCLAW_STATE_DIR>/plugin-runtimes/job-search/search-runs/<runId>/listings/<listingId>.json`
-- `<OPENCLAW_STATE_DIR>/plugin-runtimes/job-search/evaluations/<runId>/<listingId>.json`
-- `<OPENCLAW_STATE_DIR>/plugin-runtimes/job-search/evaluations/<runId>/<listingId>.error.json`
-- `<OPENCLAW_STATE_DIR>/plugin-runtimes/job-search/exports/<runId>.xlsx`
-- `<OPENCLAW_STATE_DIR>/plugin-runtimes/job-search/exports/latest.xlsx`
+## Runtime artifacts
 
-The repo checkout is not used as writable runtime storage.
+The plugin writes runtime artifacts under the OpenClaw state dir:
 
-## Profile input model
+- `plugin-runtimes/job-search/search-runs/<runId>/search.json`
+- `plugin-runtimes/job-search/search-runs/<runId>/listings/<listingId>.json`
+- `plugin-runtimes/job-search/evaluations/<runId>/<listingId>.json`
+- `plugin-runtimes/job-search/evaluations/<runId>/<listingId>.error.json`
+- `plugin-runtimes/job-search/exports/<runId>.xlsx`
+- `plugin-runtimes/job-search/exports/latest.xlsx`
 
-`profilePath` is an explicit runtime input:
+## Profile input
 
-- required for `job_search_prepare_run`
-- required for `job_search_spawn_evaluators`
-- required for `job_search_full_run`
-- persisted into each run's `search.json`
-- validated before preparation/evaluation starts
+The candidate profile is a run input.
 
-The sample profile in `assets/profiles/` is just demo content. It is not an operational default.
+Real runs must provide `profilePath` explicitly.
+The sample profile under `assets/profiles/` is example/demo content only.
 
-## Plugin tools
+## Plugin surfaces
 
+The plugin registers these tools:
 - `job_search_prepare_run`
 - `job_search_run_retrieval`
 - `job_search_spawn_evaluators`
 - `job_search_export_run`
 - `job_search_full_run`
-
-## Notes
-
-- Retrieval uses JobSpy.
-- Evaluator fanout uses concurrent subagent runs.
-- Excel export is built from file-based evaluation artifacts, not stdout scraping.
-- `job_search_run_retrieval` and `job_search_export_run` work from the state-backed run artifacts created earlier in the flow.

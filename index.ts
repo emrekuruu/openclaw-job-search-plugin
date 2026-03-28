@@ -1,10 +1,10 @@
 import { Type } from "@sinclair/typebox";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
-import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import xlsx from "xlsx";
+import { spawn } from "node:child_process";
 
 type Json = Record<string, any>;
 
@@ -74,12 +74,6 @@ function requireExistingFile(filePath: string, label: string) {
   }
 }
 
-function loadSearchDefaults() {
-  const defaultsPath = path.join(repoRoot(), "config", "search-defaults.json");
-  requireExistingFile(defaultsPath, "Search defaults");
-  return readJson(defaultsPath);
-}
-
 function resolveArtifacts(stateDir: string, runId: string) {
   const runDir = path.join(stateDir, "search-runs", runId);
   const listingsDir = path.join(runDir, "listings");
@@ -98,40 +92,6 @@ function resolveArtifacts(stateDir: string, runId: string) {
   };
 }
 
-function listingIdentity(listing: Json) {
-  return String(
-    listing.url || `${listing.company || "unknown-company"}::${listing.title || "unknown-title"}::${listing.location || "unknown-location"}::${listing.query || "unknown-query"}`,
-  );
-}
-
-function listingId(runId: string, listing: Json) {
-  const base = slugify(`${runId}-${listing.company || "unknown-company"}-${listing.title || "unknown-title"}`);
-  const suffix = crypto.createHash("sha1").update(listingIdentity(listing)).digest("hex").slice(0, 10);
-  return `${base}-${suffix}`;
-}
-
-function normalizeListing(runId: string, raw: Json, queryEntry: Json) {
-  const listing = {
-    title: raw.title || raw.job_title || "Unknown Title",
-    company: raw.company || raw.company_name || "Unknown Company",
-    location: raw.location || raw.job_location || "Unknown Location",
-    workMode: raw.workMode || (raw.is_remote ? "remote" : null),
-    source: raw.source || raw.site || raw.site_name || "unknown",
-    url: raw.url || raw.job_url || raw.job_url_direct || "",
-    postedDate: raw.postedDate || raw.date_posted || null,
-    salary: raw.salary || raw.min_amount || null,
-    summary: raw.summary || raw.description || raw.job_summary || "",
-    query: queryEntry.query,
-    reasoning: queryEntry.reasoning,
-    filters: queryEntry.filters || {},
-    filterReasoning: queryEntry.filterReasoning || {},
-    runId,
-    retrievedAt: new Date().toISOString(),
-  } as Json;
-  listing.id = listingId(runId, listing);
-  return listing;
-}
-
 function latestRunDir(stateDir: string) {
   const runsDir = path.join(stateDir, "search-runs");
   ensureDir(runsDir);
@@ -143,70 +103,45 @@ function latestRunDir(stateDir: string) {
   return dirs[dirs.length - 1];
 }
 
-async function runJobSpySearch(runDir: string) {
-  const searchPath = path.join(runDir, "search.json");
-  requireExistingFile(searchPath, "search.json");
-  const search = readJson(searchPath);
-  requireExistingFile(String(search.profilePath || ""), "Candidate profile");
-  const queries = search.queries || [];
-  if (!queries.length) throw new Error("search.json has no queries.");
-  const defaults = loadSearchDefaults();
-  const listingsDir = path.join(runDir, "listings");
-  rmSync(listingsDir, { recursive: true, force: true });
-  ensureDir(listingsDir);
-
-  const { scrape_jobs } = await import("jobspy");
-  const seen = new Set<string>();
-  const executedQueries: Json[] = [];
-  let listingCount = 0;
-
-  for (const queryEntry of queries) {
-    const filters = queryEntry.filters || {};
-    const request: Json = {
-      site_name: filters.site_name ?? defaults.siteNames,
-      search_term: queryEntry.query,
-      location: filters.location,
-      results_wanted: filters.results_wanted ?? defaults.resultsWanted ?? 10,
-      hours_old: filters.hours_old ?? defaults.hoursOld ?? defaults.freshnessHours ?? 720,
-      is_remote: filters.is_remote ?? false,
-      easy_apply: filters.easy_apply ?? defaults.easyApply ?? false,
-      linkedin_fetch_description: filters.linkedin_fetch_description ?? defaults.linkedinFetchDescription ?? true,
-      country_indeed: filters.country_indeed ?? defaults.defaultCountryIndeed ?? "turkey",
-      verbose: filters.verbose ?? defaults.verbose ?? 1,
-      job_type: filters.job_type ?? defaults.jobType ?? "fulltime",
-      distance: filters.distance ?? defaults.distance,
-    };
-    Object.keys(request).forEach((key) => request[key] == null && delete request[key]);
-    const df = await scrape_jobs(request as any);
-    const results = JSON.parse(df.to_json({ orient: "records", date_format: "iso" } as any));
-    executedQueries.push({
-      query: queryEntry.query,
-      reasoning: queryEntry.reasoning,
-      filters,
-      filterReasoning: queryEntry.filterReasoning || {},
-      request,
-      resultCount: results.length,
+function runPythonJobSpy(repoDir: string, stateDir: string) {
+  return new Promise<{ searchPath: string; listingsDir: string; listingCount?: number }>((resolve, reject) => {
+    const python = process.env.JOB_SEARCH_PYTHON || "python3";
+    const script = path.join(repoDir, "skills", "job-search-skill", "scripts", "run_jobspy_search.py");
+    const child = spawn(python, [script], {
+      cwd: repoDir,
+      env: {
+        ...process.env,
+        OPENCLAW_STATE_DIR: path.dirname(path.dirname(stateDir)),
+      },
+      stdio: ["ignore", "pipe", "pipe"],
     });
-    for (const raw of results) {
-      const listing = normalizeListing(search.runId || path.basename(runDir), raw, queryEntry);
-      const identity = listingIdentity(listing).toLowerCase();
-      if (seen.has(identity)) continue;
-      seen.add(identity);
-      writeJson(path.join(listingsDir, `${listing.id}.json`), listing);
-      listingCount += 1;
-    }
-  }
-
-  search.status = "completed";
-  search.listingCount = listingCount;
-  search.executedQueries = executedQueries;
-  search.artifacts = {
-    ...(search.artifacts || {}),
-    searchPath,
-    listingsDir,
-  };
-  writeJson(searchPath, search);
-  return { searchPath, listingsDir, listingCount };
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(`JobSpy runner failed with code ${code}: ${stderr || stdout}`));
+        return;
+      }
+      const searchPath = stdout.trim().split(/\r?\n/).filter(Boolean).pop();
+      if (!searchPath) {
+        reject(new Error("JobSpy runner did not print a search.json path."));
+        return;
+      }
+      const search = readJson(searchPath);
+      resolve({
+        searchPath,
+        listingsDir: String(search?.artifacts?.listingsDir || ""),
+        listingCount: Number(search?.listingCount || 0),
+      });
+    });
+  });
 }
 
 function exportRun(stateDir: string, runId: string) {
@@ -327,14 +262,16 @@ export default definePluginEntry({
 
     api.registerTool({
       name: "job_search_run_retrieval",
-      description: "Run JobSpy retrieval for the latest or specified state-backed run using the authored search.json plan.",
+      description: "Run JobSpy retrieval through the job-search skill's Python runner for the latest or specified state-backed run.",
       parameters: Type.Object({
         runId: Type.Optional(Type.String()),
       }),
       async execute(_id, params) {
         const cfg = resolvePluginConfig(api);
         const runDir = params.runId ? resolveArtifacts(cfg.stateDir, String(params.runId)).runDir : latestRunDir(cfg.stateDir);
-        const result = await runJobSpySearch(runDir);
+        const searchPath = path.join(runDir, "search.json");
+        requireExistingFile(searchPath, "search.json");
+        const result = await runPythonJobSpy(repoRoot(), cfg.stateDir);
         return { content: [{ type: "text", text: JSON.stringify(result) }] };
       },
     });
@@ -401,7 +338,7 @@ export default definePluginEntry({
             exportsDir: artifacts.exportsDir,
           },
         });
-        const retrieval = await runJobSpySearch(artifacts.runDir);
+        const retrieval = await runPythonJobSpy(repoRoot(), cfg.stateDir);
         const evaluation = await spawnEvaluators(api, cfg.stateDir, {
           runId,
           profilePath,
