@@ -17,14 +17,17 @@ Tasks:
 Required output shape:
 {
   "listingId": "string",
-  "decision": "keep",
+  "decision": "keep|maybe|drop",
   "score": 84,
-  "reasoning": "Strong junior backend fit with relevant Java/Spring experience; slight stretch on years requirement."
+  "reasoning": "Strong junior backend fit with relevant Java/Spring experience; slight stretch on years requirement.",
+  "dimensions": {
+    "roleFit": 90,
+    "seniorityFit": 85,
+    "locationFit": 70,
+    "domainFit": 80,
+    "skillsFit": 95
+  }
 }
-
-Optional fields:
-- `dimensions`
-- `flags`
 
 Rules:
 - evaluate exactly one listing
@@ -32,3 +35,8 @@ Rules:
 - the result must be written to `outputPath`
 - keep reasoning concise and specific
 - do not assume any repo-local default profile; always use the provided `profilePath`
+- `dimensions` are required, not optional
+- every dimension score must be normalized to 0-100
+- final `score` must be normalized to 0-100 and consistent with the dimension scores
+- `decision` must be exactly one of `keep`, `maybe`, or `drop`
+- if the listing is obviously outside the candidate's role, seniority, or location constraints, reflect that clearly in the dimension scores

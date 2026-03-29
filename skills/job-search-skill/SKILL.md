@@ -15,8 +15,11 @@ The agent should:
 - decide search queries
 - decide per-query filters
 - explain the reasoning clearly
+- normalize query objects before calling `job_search_prepare_run`
 - call the plugin tools instead of owning deterministic workflow mechanics itself
 - when doing a full workflow, follow `prompts/job-search-cron-orchestration-prompt.md` for agent/subagent orchestration outside the plugin
+
+Read `references/query-schema.md` before preparing run queries for retrieval.
 
 ## Split of responsibilities
 
@@ -66,3 +69,4 @@ For full runs:
 - let OpenClaw orchestrate evaluator subagents itself
 - ensure each evaluator writes one JSON artifact into `plugin-runtimes/job-search/evaluations/<runId>/`
 - call `job_search_export_run` only after evaluation artifacts are present
+- use bounded concurrency; do not reuse a single locked session for multiple evaluator workers
