@@ -5,23 +5,31 @@ Each evaluator should write one JSON file.
 Canonical path:
 - `<OPENCLAW_STATE_DIR>/plugin-runtimes/job-search/evaluations/<runId>/<listingId>.json`
 
-Shape:
+Canonical shape:
 
 ```json
 {
   "listingId": "string",
-  "decision": "keep",
-  "score": 84,
-  "reasoning": "Strong junior backend fit with relevant Java/Spring experience; slight stretch on years requirement.",
+  "decision": "keep|maybe|drop",
+  "score": 78,
+  "reasoning": "Concise explanation.",
   "dimensions": {
-    "seniority": 90,
     "roleFit": 85,
-    "stackFit": 78,
-    "locationFit": 95
-  },
-  "flags": []
+    "seniorityFit": 90,
+    "locationFit": 70,
+    "domainFit": 80,
+    "skillsFit": 65
+  }
 }
 ```
+
+Rules:
+
+- `dimensions` are required, not optional
+- every dimension score must be normalized to `0-100`
+- final `score` must be normalized to `0-100`
+- `decision` must be exactly one of `keep`, `maybe`, or `drop`
+- the final `score` should be consistent with the dimension scores
 
 Failure artifact shape:
 
