@@ -46,6 +46,9 @@ The plugin registers these tools:
 Evaluator orchestration is intentionally not owned by the plugin anymore.
 OpenClaw agents/subagents should read the prepared artifacts, write evaluation JSON files into `plugin-runtimes/job-search/evaluations/<runId>/`, and then call `job_search_export_run`.
 
+A reference orchestration prompt for cron/agent workflows lives at:
+- `prompts/job-search-cron-orchestration-prompt.md`
+
 ## Python worker setup
 
 OpenClaw installs plugin JS dependencies with `npm install --ignore-scripts`; there is no plugin-era Python dependency provisioning hook here. So the Python worker setup has to be explicit.

@@ -16,13 +16,13 @@ The agent should:
 - decide per-query filters
 - explain the reasoning clearly
 - call the plugin tools instead of owning deterministic workflow mechanics itself
+- when doing a full workflow, follow `prompts/job-search-cron-orchestration-prompt.md` for agent/subagent orchestration outside the plugin
 
 ## Split of responsibilities
 
 ### Plugin owns
 - run creation
 - state-dir artifact layout
-- evaluator fanout
 - export / aggregation
 - runtime worker readiness checks and actionable failure messages
 
@@ -55,5 +55,14 @@ If imports are missing, the plugin now fails early with setup guidance instead o
 
 - default to full-time unless the profile explicitly asks for internship or contract work
 - the agent owns the search reasoning
-- the plugin owns orchestration and artifact layout
+- the plugin owns deterministic artifact layout and export, not evaluator orchestration
 - runtime artifacts live under the OpenClaw state dir, not in the repo checkout
+
+## Full workflow orchestration
+
+For full runs:
+- use the plugin to prepare the run and perform retrieval
+- read `search.json` to discover artifact paths
+- let OpenClaw orchestrate evaluator subagents itself
+- ensure each evaluator writes one JSON artifact into `plugin-runtimes/job-search/evaluations/<runId>/`
+- call `job_search_export_run` only after evaluation artifacts are present
