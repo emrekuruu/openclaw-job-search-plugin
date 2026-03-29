@@ -7,7 +7,6 @@ This repo is now a native OpenClaw plugin for concurrent job-search runs.
 ### Plugin owns
 - run creation
 - state-dir artifact layout
-- evaluator fanout
 - export / aggregation
 
 ### Job-search skill owns
@@ -40,11 +39,12 @@ The plugin registers these tools:
 - `job_search_check_worker`
 - `job_search_prepare_run`
 - `job_search_run_retrieval`
-- `job_search_spawn_evaluators`
 - `job_search_export_run`
-- `job_search_full_run`
 
 `job_search_run_retrieval` can target a specific prepared `runId`; if omitted, it falls back to the latest prepared run.
+
+Evaluator orchestration is intentionally not owned by the plugin anymore.
+OpenClaw agents/subagents should read the prepared artifacts, write evaluation JSON files into `plugin-runtimes/job-search/evaluations/<runId>/`, and then call `job_search_export_run`.
 
 ## Python worker setup
 

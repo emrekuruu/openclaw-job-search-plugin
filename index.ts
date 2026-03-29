@@ -5,7 +5,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import xlsx from "xlsx";
 import { spawn, spawnSync } from "node:child_process";
-import crypto from "node:crypto";
 
 type Json = Record<string, any>;
 
@@ -87,8 +86,6 @@ function resolvePluginConfig(api: any) {
   const cfg = (api.pluginConfig ?? {}) as Record<string, unknown>;
   return {
     stateDir: resolvePluginStateDir(api),
-    evaluationConcurrency: Number(cfg.evaluationConcurrency ?? 20),
-    evaluationModel: cfg.evaluationModel ? String(cfg.evaluationModel) : null,
   };
 }
 
@@ -238,105 +235,6 @@ function exportRun(stateDir: string, runId: string) {
   return artifacts.exportPath;
 }
 
-function buildEvaluatorInvocation(api: any, runId: string, profilePath: string, listingPath: string, idx: number, outputPath: string, errorPath: string) {
-  const promptPath = path.join(repoRoot(), "prompts", "job-listing-evaluator-subagent-prompt.md");
-  const promptTemplate = existsSync(promptPath) ? readFileSync(promptPath, "utf8") : "Evaluate the listing and write one JSON result to outputPath.";
-  const sessionKey = `job-search-eval-${slugify(runId).slice(-12)}-${String(idx + 1).padStart(2, "0")}`;
-  const message = `${promptTemplate}\n\nInputs:\n- profilePath: ${profilePath}\n- listingPath: ${listingPath}\n- runId: ${runId}\n- outputPath: ${outputPath}\n- errorPath: ${errorPath}\n\nRules:\n- Read profilePath and listingPath.\n- Write exactly one JSON evaluation object to outputPath.\n- If evaluation fails, write a JSON error object to errorPath.\n- Do not rely on stdout for the result.`;
-  const req: Json = {
-    sessionKey,
-    message,
-    deliver: false,
-  };
-  const modelRef = resolvePluginConfig(api).evaluationModel;
-  if (modelRef) {
-    const [provider, model] = modelRef.split("/", 2);
-    if (provider && model) {
-      req.provider = provider;
-      req.model = model;
-    }
-  }
-  return req;
-}
-
-async function runEvaluatorViaEmbeddedAgent(api: any, req: Json, outputPath: string, errorPath: string, timeoutMs: number) {
-  const cfg = api.config ?? process.env;
-  const agentDir = api.runtime.agent.resolveAgentDir(cfg);
-  const workspaceDir = api.runtime.agent.resolveAgentWorkspaceDir(cfg);
-  const sessionId = `job-search-eval-${req.sessionKey}`;
-  const sessionFile = api.runtime.agent.session.resolveSessionFilePath(cfg, sessionId);
-  const result = await api.runtime.agent.runEmbeddedPiAgent({
-    sessionId,
-    sessionKey: req.sessionKey,
-    trigger: "manual",
-    sessionFile,
-    workspaceDir,
-    agentDir,
-    prompt: req.message,
-    timeoutMs,
-    runId: crypto.randomUUID(),
-    provider: req.provider,
-    model: req.model,
-  });
-  const text = Array.isArray(result?.payloads)
-    ? result.payloads.map((payload: any) => payload?.text).filter(Boolean).join("\n")
-    : "";
-  return {
-    mode: "embedded-agent",
-    outputPath,
-    errorPath,
-    ok: existsSync(outputPath),
-    error: existsSync(errorPath) ? readJson(errorPath) : null,
-    responseText: text,
-  };
-}
-
-async function spawnEvaluators(api: any, stateDir: string, params: Json) {
-  const runId = String(params.runId);
-  const profilePath = path.resolve(String(params.profilePath));
-  requireExistingFile(profilePath, "Candidate profile");
-  const artifacts = resolveArtifacts(stateDir, runId);
-  ensureDir(artifacts.evaluationsDir);
-  const timeoutMs = Number(params.timeoutMs ?? 600000);
-  const listingFiles = listJson(artifacts.listingsDir).slice(0, Number(params.limit ?? resolvePluginConfig(api).evaluationConcurrency));
-
-  try {
-    const runs = await Promise.all(listingFiles.map(async (listingPath, idx) => {
-      const listing = readJson(listingPath);
-      const outputPath = path.join(artifacts.evaluationsDir, `${listing.id}.json`);
-      const errorPath = path.join(artifacts.evaluationsDir, `${listing.id}.error.json`);
-      const req = buildEvaluatorInvocation(api, runId, profilePath, listingPath, idx, outputPath, errorPath);
-      const started = await api.runtime.subagent.run(req);
-      return { runId: started.runId, listingPath, outputPath, errorPath };
-    }));
-
-    await Promise.all(runs.map((r) => api.runtime.subagent.waitForRun({ runId: r.runId, timeoutMs })));
-
-    const results = runs.map((r) => ({
-      mode: "subagent",
-      listingPath: r.listingPath,
-      outputPath: r.outputPath,
-      errorPath: r.errorPath,
-      ok: existsSync(r.outputPath),
-      error: existsSync(r.errorPath) ? readJson(r.errorPath) : null,
-    }));
-    return { runId, evaluationsDir: artifacts.evaluationsDir, mode: "subagent", results };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!message.includes("subagent")) throw error;
-    const results = await Promise.all(listingFiles.map(async (listingPath, idx) => {
-      const listing = readJson(listingPath);
-      const outputPath = path.join(artifacts.evaluationsDir, `${listing.id}.json`);
-      const errorPath = path.join(artifacts.evaluationsDir, `${listing.id}.error.json`);
-      const req = buildEvaluatorInvocation(api, runId, profilePath, listingPath, idx, outputPath, errorPath);
-      return {
-        listingPath,
-        ...(await runEvaluatorViaEmbeddedAgent(api, req, outputPath, errorPath, timeoutMs)),
-      };
-    }));
-    return { runId, evaluationsDir: artifacts.evaluationsDir, mode: "embedded-agent-fallback", fallbackReason: message, results };
-  }
-}
 
 export default definePluginEntry({
   id: "job-search",
@@ -415,23 +313,6 @@ export default definePluginEntry({
     });
 
     api.registerTool({
-      name: "job_search_spawn_evaluators",
-      label: "Spawn evaluator subagents",
-      description: "Spawn concurrent evaluator subagents, one per listing, writing state-backed artifacts into evaluations/<runId>/.",
-      parameters: Type.Object({
-        runId: Type.String(),
-        profilePath: Type.String(),
-        limit: Type.Optional(Type.Integer({ minimum: 1 })),
-        timeoutMs: Type.Optional(Type.Integer({ minimum: 1 })),
-      }),
-      async execute(_id, params) {
-        const cfg = resolvePluginConfig(api);
-        const result = await spawnEvaluators(api, cfg.stateDir, params as Json);
-        return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
-      },
-    });
-
-    api.registerTool({
       name: "job_search_export_run",
       label: "Export job search run",
       description: "Aggregate evaluation artifacts for a run and export them into an Excel workbook sorted by score.",
@@ -446,59 +327,5 @@ export default definePluginEntry({
       },
     });
 
-    api.registerTool({
-      name: "job_search_full_run",
-      label: "Run full job search workflow",
-      description: "Prepare, retrieve, evaluate concurrently, and export a full job search run backed by OpenClaw state storage.",
-      parameters: Type.Object({
-        runId: Type.Optional(Type.String()),
-        profilePath: Type.String(),
-        candidateUnderstanding: Type.Optional(Type.Any()),
-        queries: Type.Array(Type.Any()),
-        evaluationLimit: Type.Optional(Type.Integer({ minimum: 1 })),
-        timeoutMs: Type.Optional(Type.Integer({ minimum: 1 })),
-      }),
-      async execute(_id, params) {
-        const cfg = resolvePluginConfig(api);
-        const profilePath = path.resolve(String(params.profilePath));
-        requireExistingFile(profilePath, "Candidate profile");
-        const runId = String(params.runId || `${nowStamp()}-${slugify(path.basename(profilePath, path.extname(profilePath)))}`);
-        const artifacts = resolveArtifacts(cfg.stateDir, runId);
-        ensureDir(artifacts.listingsDir);
-        writeJson(artifacts.searchPath, {
-          runId,
-          profilePath,
-          candidateUnderstanding: params.candidateUnderstanding || {},
-          queries: params.queries,
-          status: "draft",
-          artifacts: {
-            stateDir: artifacts.stateDir,
-            runDir: artifacts.runDir,
-            searchPath: artifacts.searchPath,
-            listingsDir: artifacts.listingsDir,
-            evaluationsDir: artifacts.evaluationsDir,
-            exportsDir: artifacts.exportsDir,
-          },
-        });
-        const retrieval = await runPythonJobSpy(repoRoot(), cfg.stateDir, runId);
-        const evaluation = await spawnEvaluators(api, cfg.stateDir, {
-          runId,
-          profilePath,
-          limit: params.evaluationLimit ?? cfg.evaluationConcurrency,
-          timeoutMs: params.timeoutMs,
-        });
-        const exportPath = exportRun(cfg.stateDir, runId);
-        const details = { runId, retrieval, evaluation, exportPath };
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(details),
-            },
-          ],
-          details,
-        };
-      },
-    });
   },
 });
