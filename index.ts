@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import xlsx from "xlsx";
 import { spawn, spawnSync } from "node:child_process";
+import crypto from "node:crypto";
 
 type Json = Record<string, any>;
 
@@ -237,49 +238,104 @@ function exportRun(stateDir: string, runId: string) {
   return artifacts.exportPath;
 }
 
+function buildEvaluatorInvocation(api: any, runId: string, profilePath: string, listingPath: string, idx: number, outputPath: string, errorPath: string) {
+  const promptPath = path.join(repoRoot(), "prompts", "job-listing-evaluator-subagent-prompt.md");
+  const promptTemplate = existsSync(promptPath) ? readFileSync(promptPath, "utf8") : "Evaluate the listing and write one JSON result to outputPath.";
+  const sessionKey = `job-search-eval-${slugify(runId).slice(-12)}-${String(idx + 1).padStart(2, "0")}`;
+  const message = `${promptTemplate}\n\nInputs:\n- profilePath: ${profilePath}\n- listingPath: ${listingPath}\n- runId: ${runId}\n- outputPath: ${outputPath}\n- errorPath: ${errorPath}\n\nRules:\n- Read profilePath and listingPath.\n- Write exactly one JSON evaluation object to outputPath.\n- If evaluation fails, write a JSON error object to errorPath.\n- Do not rely on stdout for the result.`;
+  const req: Json = {
+    sessionKey,
+    message,
+    deliver: false,
+  };
+  const modelRef = resolvePluginConfig(api).evaluationModel;
+  if (modelRef) {
+    const [provider, model] = modelRef.split("/", 2);
+    if (provider && model) {
+      req.provider = provider;
+      req.model = model;
+    }
+  }
+  return req;
+}
+
+async function runEvaluatorViaEmbeddedAgent(api: any, req: Json, outputPath: string, errorPath: string, timeoutMs: number) {
+  const cfg = api.config ?? process.env;
+  const agentDir = api.runtime.agent.resolveAgentDir(cfg);
+  const workspaceDir = api.runtime.agent.resolveAgentWorkspaceDir(cfg);
+  const sessionId = `job-search-eval-${req.sessionKey}`;
+  const sessionFile = api.runtime.agent.session.resolveSessionFilePath(cfg, sessionId);
+  const result = await api.runtime.agent.runEmbeddedPiAgent({
+    sessionId,
+    sessionKey: req.sessionKey,
+    trigger: "manual",
+    sessionFile,
+    workspaceDir,
+    agentDir,
+    prompt: req.message,
+    timeoutMs,
+    runId: crypto.randomUUID(),
+    provider: req.provider,
+    model: req.model,
+  });
+  const text = Array.isArray(result?.payloads)
+    ? result.payloads.map((payload: any) => payload?.text).filter(Boolean).join("\n")
+    : "";
+  return {
+    mode: "embedded-agent",
+    outputPath,
+    errorPath,
+    ok: existsSync(outputPath),
+    error: existsSync(errorPath) ? readJson(errorPath) : null,
+    responseText: text,
+  };
+}
+
 async function spawnEvaluators(api: any, stateDir: string, params: Json) {
   const runId = String(params.runId);
   const profilePath = path.resolve(String(params.profilePath));
   requireExistingFile(profilePath, "Candidate profile");
   const artifacts = resolveArtifacts(stateDir, runId);
   ensureDir(artifacts.evaluationsDir);
+  const timeoutMs = Number(params.timeoutMs ?? 600000);
   const listingFiles = listJson(artifacts.listingsDir).slice(0, Number(params.limit ?? resolvePluginConfig(api).evaluationConcurrency));
-  const promptPath = path.join(repoRoot(), "prompts", "job-listing-evaluator-subagent-prompt.md");
-  const promptTemplate = existsSync(promptPath) ? readFileSync(promptPath, "utf8") : "Evaluate the listing and write one JSON result to outputPath.";
-  const modelRef = resolvePluginConfig(api).evaluationModel;
 
-  const runs = await Promise.all(listingFiles.map(async (listingPath, idx) => {
-    const listing = readJson(listingPath);
-    const outputPath = path.join(artifacts.evaluationsDir, `${listing.id}.json`);
-    const errorPath = path.join(artifacts.evaluationsDir, `${listing.id}.error.json`);
-    const sessionKey = `job-search-eval-${slugify(runId).slice(-12)}-${String(idx + 1).padStart(2, "0")}`;
-    const message = `${promptTemplate}\n\nInputs:\n- profilePath: ${profilePath}\n- listingPath: ${listingPath}\n- runId: ${runId}\n- outputPath: ${outputPath}\n- errorPath: ${errorPath}\n\nRules:\n- Read profilePath and listingPath.\n- Write exactly one JSON evaluation object to outputPath.\n- If evaluation fails, write a JSON error object to errorPath.\n- Do not rely on stdout for the result.`;
-    const req: Json = {
-      sessionKey,
-      message,
-      deliver: false,
-    };
-    if (modelRef) {
-      const [provider, model] = modelRef.split("/", 2);
-      if (provider && model) {
-        req.provider = provider;
-        req.model = model;
-      }
-    }
-    const started = await api.runtime.subagent.run(req);
-    return { runId: started.runId, listingPath, outputPath, errorPath };
-  }));
+  try {
+    const runs = await Promise.all(listingFiles.map(async (listingPath, idx) => {
+      const listing = readJson(listingPath);
+      const outputPath = path.join(artifacts.evaluationsDir, `${listing.id}.json`);
+      const errorPath = path.join(artifacts.evaluationsDir, `${listing.id}.error.json`);
+      const req = buildEvaluatorInvocation(api, runId, profilePath, listingPath, idx, outputPath, errorPath);
+      const started = await api.runtime.subagent.run(req);
+      return { runId: started.runId, listingPath, outputPath, errorPath };
+    }));
 
-  await Promise.all(runs.map((r) => api.runtime.subagent.waitForRun({ runId: r.runId, timeoutMs: Number(params.timeoutMs ?? 600000) })));
+    await Promise.all(runs.map((r) => api.runtime.subagent.waitForRun({ runId: r.runId, timeoutMs })));
 
-  const results = runs.map((r) => ({
-    listingPath: r.listingPath,
-    outputPath: r.outputPath,
-    errorPath: r.errorPath,
-    ok: existsSync(r.outputPath),
-    error: existsSync(r.errorPath) ? readJson(r.errorPath) : null,
-  }));
-  return { runId, evaluationsDir: artifacts.evaluationsDir, results };
+    const results = runs.map((r) => ({
+      mode: "subagent",
+      listingPath: r.listingPath,
+      outputPath: r.outputPath,
+      errorPath: r.errorPath,
+      ok: existsSync(r.outputPath),
+      error: existsSync(r.errorPath) ? readJson(r.errorPath) : null,
+    }));
+    return { runId, evaluationsDir: artifacts.evaluationsDir, mode: "subagent", results };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes("subagent")) throw error;
+    const results = await Promise.all(listingFiles.map(async (listingPath, idx) => {
+      const listing = readJson(listingPath);
+      const outputPath = path.join(artifacts.evaluationsDir, `${listing.id}.json`);
+      const errorPath = path.join(artifacts.evaluationsDir, `${listing.id}.error.json`);
+      const req = buildEvaluatorInvocation(api, runId, profilePath, listingPath, idx, outputPath, errorPath);
+      return {
+        listingPath,
+        ...(await runEvaluatorViaEmbeddedAgent(api, req, outputPath, errorPath, timeoutMs)),
+      };
+    }));
+    return { runId, evaluationsDir: artifacts.evaluationsDir, mode: "embedded-agent-fallback", fallbackReason: message, results };
+  }
 }
 
 export default definePluginEntry({
