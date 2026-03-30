@@ -1,0 +1,87 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Count 1 /Kids [3 0 R] >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >> endobj
+4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
+5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> endobj
+6 0 obj << /Length 5937 >> stream
+BT /F2 22 Tf 0.090 0.200 0.390 rg 1 0 0 1 42 806 Tm (Tahsin Mert Ulu) Tj ET
+BT /F1 10 Tf 0.360 0.420 0.510 rg 1 0 0 1 42 788 Tm (Unity / Game Developer CV) Tj ET
+BT /F1 9 Tf 0.180 0.180 0.180 rg 1 0 0 1 42 770 Tm (Istanbul, Turkey  |  +90 507 601 32 81  |  ulu@sabanciuniv.edu  |  LinkedIn available) Tj ET
+0.750 0.800 0.900 RG 1.3 w 42 758 m 553 758 l S
+BT /F2 10 Tf 0.090 0.200 0.390 rg 1 0 0 1 42 736 Tm (EXPERIENCE) Tj ET
+0.860 0.880 0.920 RG 0.8 w 42 728 m 553 728 l S
+BT /F2 11 Tf 0.120 0.120 0.120 rg 1 0 0 1 42 710 Tm (Yap? Kredi Teknoloji) Tj ET
+BT /F1 9 Tf 0.350 0.350 0.350 rg 1 0 0 1 340 710 Tm (Software Engineering Intern) Tj ET
+BT /F1 10 Tf 0.000 0.000 0.000 rg 1 0 0 1 44 695 Tm (?) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 54 695 Tm (Contributed to internal banking applications used by internal teams.) Tj ET
+BT /F1 10 Tf 0.000 0.000 0.000 rg 1 0 0 1 44 683 Tm (?) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 54 683 Tm (Worked on a full-stack banking application focused on efficiency and security.) Tj ET
+BT /F1 10 Tf 0.000 0.000 0.000 rg 1 0 0 1 44 671 Tm (?) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 54 671 Tm (Used React on the frontend and contributed to backend and BFF layers with Java and) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 54 660 Tm (Spring Boot.) Tj ET
+BT /F1 10 Tf 0.000 0.000 0.000 rg 1 0 0 1 44 648 Tm (?) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 54 648 Tm (Worked with PostgreSQL for data access and application functionality.) Tj ET
+BT /F2 11 Tf 0.120 0.120 0.120 rg 1 0 0 1 42 636 Tm (Asis Elektronik ve Bili?im Sistemleri) Tj ET
+BT /F1 9 Tf 0.350 0.350 0.350 rg 1 0 0 1 315 636 Tm (Software / Mobile Development Intern) Tj ET
+BT /F1 10 Tf 0.000 0.000 0.000 rg 1 0 0 1 44 621 Tm (?) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 54 621 Tm (Contributed to a mobile application for real-time bus tracking and card balance inquiry.) Tj ET
+BT /F1 10 Tf 0.000 0.000 0.000 rg 1 0 0 1 44 609 Tm (?) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 54 609 Tm (Integrated open data APIs into the mobile application workflow.) Tj ET
+BT /F1 10 Tf 0.000 0.000 0.000 rg 1 0 0 1 44 597 Tm (?) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 54 597 Tm (Worked with MVVM architecture in Android development.) Tj ET
+BT /F2 10 Tf 0.090 0.200 0.390 rg 1 0 0 1 42 585 Tm (PROJECTS) Tj ET
+0.860 0.880 0.920 RG 0.8 w 42 577 m 553 577 l S
+BT /F2 11 Tf 0.120 0.120 0.120 rg 1 0 0 1 42 559 Tm (Unity Puzzle Game Prototype) Tj ET
+BT /F1 10 Tf 0.000 0.000 0.000 rg 1 0 0 1 44 544 Tm (?) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 54 544 Tm (Developed a casual puzzle game prototype in Unity using C#.) Tj ET
+BT /F1 10 Tf 0.000 0.000 0.000 rg 1 0 0 1 44 532 Tm (?) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 54 532 Tm (Designed grid-based gameplay mechanics for object interaction.) Tj ET
+BT /F1 10 Tf 0.000 0.000 0.000 rg 1 0 0 1 44 520 Tm (?) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 54 520 Tm (Built reusable level structures and logic for dynamically generated levels.) Tj ET
+BT /F1 10 Tf 0.000 0.000 0.000 rg 1 0 0 1 44 508 Tm (?) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 54 508 Tm (Added animation behaviors to improve gameplay feedback.) Tj ET
+BT /F2 11 Tf 0.120 0.120 0.120 rg 1 0 0 1 42 496 Tm (Word Puzzle Prototype) Tj ET
+BT /F1 10 Tf 0.000 0.000 0.000 rg 1 0 0 1 44 481 Tm (?) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 54 481 Tm (Developed a word puzzle prototype inspired by letter-selection and word-validation) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 54 470 Tm (gameplay loops.) Tj ET
+BT /F1 10 Tf 0.000 0.000 0.000 rg 1 0 0 1 44 458 Tm (?) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 54 458 Tm (Recreated core mechanics by analyzing and reverse-engineering interaction patterns.) Tj ET
+BT /F1 10 Tf 0.000 0.000 0.000 rg 1 0 0 1 44 446 Tm (?) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 54 446 Tm (Focused on gameplay logic, progression structure, and responsive user interaction.) Tj ET
+BT /F2 11 Tf 0.120 0.120 0.120 rg 1 0 0 1 42 434 Tm (Match-Style Game Prototype) Tj ET
+BT /F1 10 Tf 0.000 0.000 0.000 rg 1 0 0 1 44 419 Tm (?) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 54 419 Tm (Built a match-style puzzle prototype in Unity with tile-matching and grid-based) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 54 408 Tm (interactions.) Tj ET
+BT /F1 10 Tf 0.000 0.000 0.000 rg 1 0 0 1 44 396 Tm (?) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 54 396 Tm (Explored gameplay loop design, state management, and casual puzzle mechanics.) Tj ET
+BT /F2 10 Tf 0.090 0.200 0.390 rg 1 0 0 1 42 384 Tm (EDUCATION) Tj ET
+0.860 0.880 0.920 RG 0.8 w 42 376 m 553 376 l S
+BT /F2 11 Tf 0.120 0.120 0.120 rg 1 0 0 1 42 358 Tm (Sabanc? University) Tj ET
+BT /F1 9 Tf 0.350 0.350 0.350 rg 1 0 0 1 320 358 Tm (B.Sc. Computer Science and Engineering) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 42 344 Tm (Minor in Decision and Behavior ∑ GPA: 3.01 ∑ Exchange: Technische Universit‰t Hamburg ∑) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 42 333 Tm (Graduation: 2025) Tj ET
+BT /F2 10 Tf 0.090 0.200 0.390 rg 1 0 0 1 42 322 Tm (SKILLS) Tj ET
+0.860 0.880 0.920 RG 0.8 w 42 314 m 553 314 l S
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 42 296 Tm (Unity, C#, Gameplay Systems, Level Design Systems, Grid-Based Mechanics, Game Prototyping,) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 42 285 Tm (Animation Integration, Event-Driven Gameplay Logic, UI Development, Object-Oriented) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 42 274 Tm (Programming, Java, Python, JavaScript, React, SQL, PostgreSQL, Android Studio, Django, Git,) Tj ET
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 42 263 Tm (Scrum, Jira, Bitbucket) Tj ET
+BT /F2 10 Tf 0.090 0.200 0.390 rg 1 0 0 1 42 252 Tm (LANGUAGES) Tj ET
+0.860 0.880 0.920 RG 0.8 w 42 244 m 553 244 l S
+BT /F1 9 Tf 0.000 0.000 0.000 rg 1 0 0 1 42 226 Tm (Turkish \(Native\), English \(Advanced\), German \(Beginner\)) Tj ET
+endstream endobj
+xref
+0 7
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000257 00000 n 
+0000000327 00000 n 
+0000000402 00000 n 
+trailer << /Size 7 /Root 1 0 R >>
+startxref
+6391
+%%EOF
