@@ -6,16 +6,20 @@ Native OpenClaw plugin for state-backed job-search runs:
 - executes JobSpy retrieval through a bundled Python worker
 - lets OpenClaw orchestrate concurrent per-listing evaluation subagents
 - exports evaluated results to Excel
+- renders tailored JSON Resume files into HTML/PDF through a CLI tool
 
-This plugin owns the deterministic workflow pieces. Search reasoning and evaluator judgment stay in the bundled skills/prompts.
+This plugin owns the deterministic workflow pieces. Search reasoning, evaluator judgment, and resume tailoring stay in the bundled skills/prompts.
 
 ## What it does
 
-The plugin registers four tools:
+The plugin registers seven tools:
 
 - `job_search_check_worker`
 - `job_search_prepare_run`
 - `job_search_run_retrieval`
+- `job_search_prepare_resume_path`
+- `job_search_import_resume_json`
+- `job_search_render_resumes`
 - `job_search_export_run`
 
 High-level flow:
@@ -25,7 +29,9 @@ High-level flow:
 3. prepare a run with normalized query inputs
 4. run retrieval
 5. evaluate listings in parallel with OpenClaw child sessions/subagents
-6. export the scored results to `.xlsx`
+6. for keep/maybe listings, generate JSON Resume files from `profilePath` + `listingDescription`
+7. render generated resume JSON files into HTML/PDF
+8. export the scored results to `.xlsx`
 
 ## Artifact layout
 
@@ -35,6 +41,9 @@ Runtime artifacts are written under the OpenClaw state dir, not the repo checkou
 - `plugin-runtimes/job-search/search-runs/<runId>/listings/<listingId>.json`
 - `plugin-runtimes/job-search/evaluations/<runId>/<listingId>.json`
 - `plugin-runtimes/job-search/evaluations/<runId>/<listingId>.error.json`
+- `plugin-runtimes/job-search/resumes/<runId>/<listingId>.json`
+- `plugin-runtimes/job-search/resumes/<runId>/<listingId>.html`
+- `plugin-runtimes/job-search/resumes/<runId>/<listingId>.pdf`
 - `plugin-runtimes/job-search/exports/<runId>.xlsx`
 - `plugin-runtimes/job-search/exports/latest.xlsx`
 
@@ -53,6 +62,27 @@ Inspect after install:
 openclaw plugins inspect job-search --json
 openclaw plugins doctor
 ```
+
+## Node dependencies
+
+This plugin uses JavaScript dependencies for both export and resume rendering.
+
+After local checkout or linked install:
+
+```bash
+npm install
+```
+
+Resume rendering dependencies now include:
+- `resumed`
+- `jsonresume-theme-even`
+- `puppeteer`
+
+Preferred visual reference/template direction for this workflow:
+- <https://registry.jsonresume.org/thomasdavis?theme=executive-slate>
+
+Preferred default render theme package:
+- `jsonresume-theme-even`
 
 ## Python worker setup
 
@@ -134,19 +164,23 @@ Default search policy in this repo:
 
 ## Full workflow
 
-The plugin does **not** own evaluator orchestration.
+The plugin does **not** own evaluator orchestration or resume authorship.
 
 Recommended full workflow:
 
 1. call `job_search_check_worker` if setup is uncertain
-2. read the profile and bundled job-search skill guidance
-3. call `job_search_prepare_run`
-4. call `job_search_run_retrieval`
-5. read `search.json` and listing JSON files from the run artifacts
-6. spawn evaluator child sessions in parallel, one listing per child
-7. ensure each evaluator writes exactly one JSON artifact
-8. call `job_search_export_run`
-9. return summary + export path
+2. optionally call `job_search_check_resume_renderer`
+3. read the profile and bundled job-search skill guidance
+4. call `job_search_prepare_run`
+5. call `job_search_run_retrieval`
+6. read `search.json` and listing JSON files from the run artifacts
+7. spawn evaluator child sessions in parallel, one listing per child
+8. ensure each evaluator writes exactly one JSON artifact
+9. for keep/maybe listings, generate one JSON Resume per listing from `profilePath` + `listingDescription`
+10. either write directly to the runtime resume path or import via `job_search_import_resume_json`
+11. call `job_search_render_resumes`
+12. call `job_search_export_run`
+13. return summary + export path + rendered resume paths
 
 Reference orchestration prompt:
 
@@ -188,6 +222,23 @@ Rules:
 - `decision` must be exactly `keep`, `maybe`, or `drop`
 - evaluators must not rely on stdout as the final artifact
 
+## Resume artifact contract
+
+Each selected listing can produce one JSON Resume file at:
+
+- `<OPENCLAW_STATE_DIR>/plugin-runtimes/job-search/resumes/<runId>/<listingId>.json`
+
+Rendered outputs live beside the source JSON:
+
+- `<OPENCLAW_STATE_DIR>/plugin-runtimes/job-search/resumes/<runId>/<listingId>.html`
+- `<OPENCLAW_STATE_DIR>/plugin-runtimes/job-search/resumes/<runId>/<listingId>.pdf`
+
+The resume-generation agent should only need:
+- `profilePath`
+- `listingDescription`
+
+Optional metadata such as `jobTitle`, `company`, `listingUrl`, and evaluation notes can help, but are not required.
+
 ## Tool details
 
 ### `job_search_prepare_run`
@@ -206,10 +257,19 @@ Returns:
 - `runId`
 - `searchPath`
 - `listingsDir`
+- `resumesDir`
 
 ### `job_search_check_worker`
 
 Verifies that the installed plugin copy can reach the Python worker and import the required packages.
+
+### `job_search_check_resume_renderer`
+
+Verifies that the installed plugin copy can execute the JSON Resume renderer and access the configured theme.
+
+Inputs:
+
+- `theme` (optional)
 
 ### `job_search_run_retrieval`
 
@@ -224,6 +284,47 @@ Returns:
 - `searchPath`
 - `listingsDir`
 - `listingCount`
+
+### `job_search_prepare_resume_path`
+
+Returns the canonical output path for one listing’s JSON Resume file.
+
+Inputs:
+
+- `runId` (required)
+- `listingId` (required)
+
+Returns:
+
+- `outputPath`
+
+### `job_search_import_resume_json`
+
+Copies a generated JSON Resume file into the runtime resumes directory.
+
+Inputs:
+
+- `runId` (required)
+- `listingId` (required)
+- `sourcePath` (required)
+
+Returns:
+
+- `outputPath`
+
+### `job_search_render_resumes`
+
+Validates and renders all JSON Resume files for a run.
+
+Inputs:
+
+- `runId` (required)
+- `theme` (optional)
+- `format` (`html`, `pdf`, or `both`; optional)
+
+Returns:
+
+- rendered source/output path pairs
 
 ### `job_search_export_run`
 
@@ -275,17 +376,20 @@ openclaw plugins install @emrekuruu/job-search
 - `openclaw.plugin.json` - plugin manifest
 - `skills/job-search-skill/` - retrieval guidance + JobSpy worker
 - `skills/job-listing-evaluation-skill/` - evaluator guidance
+- `skills/job-resume-generation-skill/` - JSON Resume generation guidance
 - `prompts/` - orchestration prompts
 - `config/search-defaults.json` - retrieval defaults
 - `assets/profiles/` - example profile inputs
 
 ## Current sanity-check status
 
-Checked locally:
+Previously checked locally:
 
 - npm package tarball builds cleanly via `npm pack --dry-run`
 - plugin manifest/tool discovery works via `openclaw plugins inspect job-search --json`
 - `openclaw plugins doctor` reports no plugin issues
+
+After the resume-rendering changes, re-run the install/inspect/doctor flow and verify the renderer with `job_search_check_resume_renderer`.
 
 Not bundled into the repo/package:
 

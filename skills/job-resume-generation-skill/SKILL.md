@@ -1,6 +1,6 @@
 ---
 name: job-resume-generation-skill
-description: Thin resume-generation skill for the job-search plugin workflow. Use when a listing has already been retrieved and evaluated as keep or maybe, and the agent should take the candidate profile plus the listing description and generate a tailored CV/resume, including ATS-aware rewrites of summaries and skills, optionally shaped for Reactive Resume.
+description: Thin resume-generation skill for the job-search plugin workflow. Use when a listing has already been retrieved and evaluated as keep or maybe, and the agent should take the candidate profile plus the listing description and generate a moderately tailored JSON Resume, including ATS-aware but non-overfit rewrites of summaries and skills, ready for deterministic CLI rendering.
 ---
 
 # Job Resume Generation Skill
@@ -13,9 +13,10 @@ Use this after:
 1. search
 2. evaluate
 3. select a `keep` or `maybe` listing
-4. generate a tailored resume from the profile plus listing description
+4. generate a tailored JSON Resume from the profile plus listing description
+5. let the plugin render the generated JSON Resume files through the CLI
 
-The deterministic search/evaluation/export mechanics belong to the plugin. This skill owns the judgment and writing guidance for converting a candidate profile plus one listing description into a tailored CV.
+The deterministic search, evaluation, storage, validation, and rendering mechanics belong to the plugin. This skill owns the judgment and writing guidance for converting a candidate profile plus one listing description into a truthful, moderately tailored JSON Resume.
 
 ## Inputs
 
@@ -30,6 +31,8 @@ Optional inputs:
 - `decision`
 - `score`
 - `evaluationNotes`
+- `listingId`
+- `runId`
 
 Do not require a retrieval artifact or listing JSON path unless some outer workflow happens to provide one. For resume generation, the profile and listing description are the real inputs that matter.
 
@@ -40,10 +43,10 @@ The agent using this skill should:
 - read the provided `listingDescription` carefully
 - identify must-have and nice-to-have requirements
 - identify exact keyword matches and adjacent transferable experience
-- generate a tailored CV/resume that stays truthful to the profile
-- strengthen summaries, bullet phrasing, and skill ordering for ATS and human readability
+- generate a moderately tailored JSON Resume that stays truthful to the profile
+- strengthen summaries, bullet phrasing, and skill ordering for ATS and human readability without over-specializing the resume to one listing
 - avoid fabricating experience, metrics, technologies, or seniority
-- produce output either as polished resume text or in a structure suitable for Reactive Resume
+- write JSON Resume output to the plugin runtime path when a runtime path is provided by the outer workflow
 
 ## Truthfulness rules
 
@@ -71,6 +74,7 @@ Extract from the profile:
 - achievements and measurable outcomes
 - adjacent/transferable experience
 - unsupported gaps
+- contact details, links, education, certifications, projects, and languages when present
 
 Then map:
 - direct matches
@@ -79,100 +83,106 @@ Then map:
 
 ### 2. Decide emphasis
 
-Choose the narrative based on fit:
-- **strong match**: mirror the listing language closely where truthful
+Choose the narrative based on fit, but avoid overfitting the entire document to one listing:
+- **strong match**: reflect the listing language selectively where truthful, without copying its phrasing everywhere
 - **stretch match**: emphasize transferability and overlap without overstating
-- **specialist framing**: foreground the most relevant stack/domain thread
-- **generalist framing**: present breadth with a clear story tied to the target role
+- **specialist framing**: foreground the most relevant stack/domain thread only when the profile strongly supports it
+- **generalist framing**: present breadth with a clear story tied to the target role; this is often the safer default
 
-### 3. Rewrite the CV
+### 3. Produce JSON Resume content
 
-#### Summary
+Output a valid JSON Resume object instead of free-form CV text.
 
-Write a concise summary that:
-- aligns with the target role
-- highlights the strongest supported domains/stacks
-- mentions ownership, delivery, or impact where supported
-- uses a few high-value listing keywords naturally
+Target the standard top-level sections when supported by the profile:
+- `$schema`
+- `basics`
+- `work`
+- `volunteer`
+- `education`
+- `awards`
+- `certificates`
+- `publications`
+- `skills`
+- `languages`
+- `interests`
+- `references`
+- `projects`
 
-#### Experience
+Use only sections supported by the candidate profile.
 
-For relevant experiences:
-- lead with action and impact
-- include tools/stack where useful for ATS
-- reorder bullets by relevance to the target role
-- prefer 3-6 strong bullets over padding
-- keep qualitative impact if the profile lacks hard metrics
+### 4. Tailor key sections
 
-Preferred bullet pattern:
+#### basics
+
+Populate supported fields such as:
+- `name`
+- `label`
+- `email`
+- `phone`
+- `url`
+- `summary`
+- `location`
+- `profiles`
+
+Use `basics.label` and `basics.summary` to align with the target role when truthful, but keep the language broad enough that the resume still reads as a strong general application document.
+
+#### work
+
+For each relevant role:
+- set factual employer, role, dates, and links from the profile
+- use `summary` for concise role scope when useful
+- use `highlights` for tailored achievement bullets
+- reorder or sharpen highlights for relevance to the listing
+- prefer 3-6 strong highlights over noisy padding
+
+Preferred highlight style:
 - accomplished **what** by doing **how**, resulting in **impact**
 
-#### Skills
+If impact is not quantified in the profile, keep it qualitative.
 
-Build a focused skills section:
+#### skills
+
+Build a focused JSON Resume `skills` array:
 - keep only profile-supported skills
-- group skills clearly
+- group skills cleanly by theme or category
 - place exact listing matches first
-- remove weak filler and duplicate variants
+- avoid giant filler dumps
 
-Possible groupings:
-- Languages
-- Frameworks
-- Cloud/DevOps
-- Data/AI
-- Product/Leadership
-- Tools
+Use entries such as:
+- `name`
+- `level`
+- `keywords`
 
-#### Other sections
+#### projects, education, certificates, languages
 
-Include projects, education, certifications, links, and languages only when they strengthen fit or close a legitimate gap.
+Include these when they strengthen fit or legitimately address listing requirements.
 
-## Output modes
+## Runtime output contract
 
-Return one or more of these depending on the request:
+When the outer workflow provides a destination path, write one JSON file per selected listing under:
 
-### 1. Tailored resume draft
-A polished human-readable CV/resume draft.
+- `<OPENCLAW_STATE_DIR>/plugin-runtimes/job-search/resumes/<runId>/<listingId>.json`
 
-### 2. Structured Reactive Resume content
-A sectioned payload suitable for entry into Reactive Resume.
+If the outer workflow does not provide a path, still produce the JSON Resume object in the response so another layer can save it.
 
-### 3. Tailoring notes
-A concise note covering:
-- keywords targeted
-- content emphasized
-- content deprioritized
-- unsupported requirements left unclaimed
+## Rendering contract
 
-## Reactive Resume
+The plugin will handle deterministic validation and rendering via CLI tooling.
 
-Use Reactive Resume as the target builder/editor when structured output is needed:
-- https://github.com/amruthpillai/reactive-resume
-
-Map content into these conceptual sections:
-- basics
-- headline or target title
-- summary/objective
-- work experience
-- education
-- skills
-- projects
-- certifications
-- languages
-- profiles/links
-
-If exact schema or import formatting is required, inspect the current project/docs before producing automation-specific output.
+The agent should not own HTML/PDF rendering logic when the plugin tool is available.
 
 ## Quality checks
 
 Before returning the result, verify:
 - every claim is supported by the profile
-- the title and summary align with the listing
-- the most relevant evidence is near the top
-- key listing language appears naturally where justified
+- the target title and summary align with the listing without sounding copied from it
+- the strongest relevant evidence appears early
+- important listing language appears naturally where justified
+- the resume remains broadly reusable and not excessively customized to one posting
 - weak or irrelevant material is trimmed
-- bullets are specific and not generic filler
+- work highlights are specific and not generic filler
+- the JSON structure is internally consistent and ready for validation
 
 ## References
 
-Read `skills/job-resume-generation-skill/references/reactive-resume-notes.md` when the user explicitly wants output tailored for Reactive Resume or asks for structured section output instead of plain CV text.
+Read `skills/job-resume-generation-skill/references/json-resume-notes.md` when you need the JSON Resume section conventions, rendering assumptions, or field-mapping reminders.

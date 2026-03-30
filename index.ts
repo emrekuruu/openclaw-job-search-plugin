@@ -1,6 +1,6 @@
 import { Type } from "@sinclair/typebox";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-import { mkdirSync, readFileSync, readdirSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync, existsSync, copyFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import xlsx from "xlsx";
@@ -86,6 +86,9 @@ function resolvePluginConfig(api: any) {
   const cfg = (api.pluginConfig ?? {}) as Record<string, unknown>;
   return {
     stateDir: resolvePluginStateDir(api),
+    defaultResumeTheme: typeof cfg.defaultResumeTheme === "string" && cfg.defaultResumeTheme.trim()
+      ? cfg.defaultResumeTheme.trim()
+      : "jsonresume-theme-even",
   };
 }
 
@@ -139,6 +142,7 @@ function resolveArtifacts(stateDir: string, runId: string) {
   const listingsDir = path.join(runDir, "listings");
   const searchPath = path.join(runDir, "search.json");
   const evaluationsDir = path.join(stateDir, "evaluations", runId);
+  const resumesDir = path.join(stateDir, "resumes", runId);
   const exportsDir = path.join(stateDir, "exports");
   return {
     stateDir,
@@ -146,6 +150,7 @@ function resolveArtifacts(stateDir: string, runId: string) {
     searchPath,
     listingsDir,
     evaluationsDir,
+    resumesDir,
     exportsDir,
     exportPath: path.join(exportsDir, `${runId}.xlsx`),
     latestExportPath: path.join(exportsDir, "latest.xlsx"),
@@ -235,11 +240,149 @@ function exportRun(stateDir: string, runId: string) {
   return artifacts.exportPath;
 }
 
+function resumedBin(repoDir: string) {
+  const binName = process.platform === "win32" ? "resumed.cmd" : "resumed";
+  return path.join(repoDir, "node_modules", ".bin", binName);
+}
+
+function verifyResumeRendererReadiness(repoDir: string, theme: string) {
+  const bin = resumedBin(repoDir);
+  if (!existsSync(bin)) {
+    throw new Error(
+      [
+        `Resumed CLI is not installed at ${bin}.`,
+        `Run: cd ${repoDir} && npm install`,
+      ].join("\n"),
+    );
+  }
+
+  const themeDir = path.join(repoDir, "node_modules", theme);
+  if (!existsSync(themeDir)) {
+    throw new Error(
+      [
+        `Resume theme is not installed: ${theme}`,
+        `Expected under ${themeDir}`,
+        `Run: cd ${repoDir} && npm install`,
+      ].join("\n"),
+    );
+  }
+
+  const versionCheck = spawnSync(bin, ["--version"], { cwd: repoDir, encoding: "utf8" });
+  if (versionCheck.error || versionCheck.status !== 0) {
+    throw new Error(
+      [
+        `Unable to execute Resumed CLI from ${bin}.`,
+        versionCheck.error ? String(versionCheck.error) : (versionCheck.stderr || versionCheck.stdout || "").trim(),
+      ].filter(Boolean).join("\n"),
+    );
+  }
+
+  return { bin, theme };
+}
+
+function normalizeResumeFormat(format?: string) {
+  const value = String(format || "both").toLowerCase();
+  if (!["html", "pdf", "both"].includes(value)) {
+    throw new Error(`Unsupported resume format: ${format}`);
+  }
+  return value as "html" | "pdf" | "both";
+}
+
+function renderResumeFile(repoDir: string, inputPath: string, theme: string, format: "html" | "pdf" | "both") {
+  const { bin } = verifyResumeRendererReadiness(repoDir, theme);
+  requireExistingFile(inputPath, "Resume JSON");
+
+  const outputPaths: string[] = [];
+  const base = inputPath.replace(/\.json$/i, "");
+
+  const validate = spawnSync(bin, ["validate", inputPath], { cwd: repoDir, encoding: "utf8" });
+  if (validate.status !== 0) {
+    throw new Error(
+      [
+        `Resume validation failed for ${inputPath}`,
+        (validate.stderr || validate.stdout || "").trim(),
+      ].filter(Boolean).join("\n"),
+    );
+  }
+
+  if (format === "html" || format === "both") {
+    const htmlPath = `${base}.html`;
+    const render = spawnSync(bin, ["render", inputPath, "--theme", theme, "--output", htmlPath], {
+      cwd: repoDir,
+      encoding: "utf8",
+    });
+    if (render.status !== 0) {
+      throw new Error(
+        [
+          `HTML render failed for ${inputPath}`,
+          (render.stderr || render.stdout || "").trim(),
+        ].filter(Boolean).join("\n"),
+      );
+    }
+    outputPaths.push(htmlPath);
+  }
+
+  if (format === "pdf" || format === "both") {
+    const pdfPath = `${base}.pdf`;
+    const exportResult = spawnSync(bin, ["export", inputPath, "--theme", theme, "--output", pdfPath], {
+      cwd: repoDir,
+      encoding: "utf8",
+    });
+    if (exportResult.status !== 0) {
+      throw new Error(
+        [
+          `PDF export failed for ${inputPath}`,
+          (exportResult.stderr || exportResult.stdout || "").trim(),
+        ].filter(Boolean).join("\n"),
+      );
+    }
+    outputPaths.push(pdfPath);
+  }
+
+  return outputPaths;
+}
+
+function prepareResumePath(stateDir: string, runId: string, listingId: string) {
+  const artifacts = resolveArtifacts(stateDir, runId);
+  ensureDir(artifacts.resumesDir);
+  return path.join(artifacts.resumesDir, `${listingId}.json`);
+}
+
+function renderRunResumes(repoDir: string, stateDir: string, runId: string, theme: string, format: "html" | "pdf" | "both") {
+  const artifacts = resolveArtifacts(stateDir, runId);
+  ensureDir(artifacts.resumesDir);
+  const files = listJson(artifacts.resumesDir);
+  const resumeFiles = files.filter((file) => !file.endsWith(".error.json"));
+  if (!resumeFiles.length) {
+    throw new Error(`No resume JSON files found in ${artifacts.resumesDir}`);
+  }
+
+  const rendered = resumeFiles.map((inputPath) => ({
+    inputPath,
+    outputPaths: renderResumeFile(repoDir, inputPath, theme, format),
+  }));
+
+  return {
+    runId,
+    resumesDir: artifacts.resumesDir,
+    theme,
+    format,
+    rendered,
+  };
+}
+
+function importResumeJson(stateDir: string, runId: string, listingId: string, sourcePath: string) {
+  const destinationPath = prepareResumePath(stateDir, runId, listingId);
+  requireExistingFile(sourcePath, "Source resume JSON");
+  const parsed = readJson(sourcePath);
+  writeJson(destinationPath, parsed);
+  return destinationPath;
+}
 
 export default definePluginEntry({
   id: "job-search",
   name: "Job Search",
-  description: "Concurrent job search workflow plugin with retrieval, evaluator fanout, and export.",
+  description: "Concurrent job search workflow plugin with retrieval, evaluator fanout, export, and JSON Resume rendering.",
   register(api) {
     api.registerTool({
       name: "job_search_prepare_run",
@@ -258,6 +401,7 @@ export default definePluginEntry({
         const runId = String(params.runId || `${nowStamp()}-${slugify(path.basename(profilePath, path.extname(profilePath)))}`);
         const artifacts = resolveArtifacts(cfg.stateDir, runId);
         ensureDir(artifacts.listingsDir);
+        ensureDir(artifacts.resumesDir);
         writeJson(artifacts.searchPath, {
           runId,
           profilePath,
@@ -270,10 +414,11 @@ export default definePluginEntry({
             searchPath: artifacts.searchPath,
             listingsDir: artifacts.listingsDir,
             evaluationsDir: artifacts.evaluationsDir,
+            resumesDir: artifacts.resumesDir,
             exportsDir: artifacts.exportsDir,
           },
         });
-        const details = { runId, searchPath: artifacts.searchPath, listingsDir: artifacts.listingsDir };
+        const details = { runId, searchPath: artifacts.searchPath, listingsDir: artifacts.listingsDir, resumesDir: artifacts.resumesDir };
         return { content: [{ type: "text", text: JSON.stringify(details) }], details };
       },
     });
@@ -290,6 +435,26 @@ export default definePluginEntry({
           python: worker.python,
           script: worker.script,
           uvProject: worker.uvProject,
+        };
+        return { content: [{ type: "text", text: JSON.stringify(details) }], details };
+      },
+    });
+
+    api.registerTool({
+      name: "job_search_check_resume_renderer",
+      label: "Check JSON Resume renderer readiness",
+      description: "Verify that the installed plugin copy can render JSON Resume files with the configured CLI and theme.",
+      parameters: Type.Object({
+        theme: Type.Optional(Type.String()),
+      }),
+      async execute(_id, params) {
+        const cfg = resolvePluginConfig(api);
+        const theme = String(params.theme || cfg.defaultResumeTheme);
+        const renderer = verifyResumeRendererReadiness(repoRoot(), theme);
+        const details = {
+          ready: true,
+          bin: renderer.bin,
+          theme: renderer.theme,
         };
         return { content: [{ type: "text", text: JSON.stringify(details) }], details };
       },
@@ -313,6 +478,62 @@ export default definePluginEntry({
     });
 
     api.registerTool({
+      name: "job_search_prepare_resume_path",
+      label: "Prepare resume output path",
+      description: "Return the canonical runtime path where an agent should write one JSON Resume file for a selected listing.",
+      parameters: Type.Object({
+        runId: Type.String(),
+        listingId: Type.String(),
+      }),
+      async execute(_id, params) {
+        const cfg = resolvePluginConfig(api);
+        const outputPath = prepareResumePath(cfg.stateDir, String(params.runId), String(params.listingId));
+        const details = { runId: params.runId, listingId: params.listingId, outputPath };
+        return { content: [{ type: "text", text: JSON.stringify(details) }], details };
+      },
+    });
+
+    api.registerTool({
+      name: "job_search_import_resume_json",
+      label: "Import JSON Resume into runtime",
+      description: "Copy a generated JSON Resume file into the plugin runtime resumes directory for a run/listing.",
+      parameters: Type.Object({
+        runId: Type.String(),
+        listingId: Type.String(),
+        sourcePath: Type.String(),
+      }),
+      async execute(_id, params) {
+        const cfg = resolvePluginConfig(api);
+        const sourcePath = path.resolve(String(params.sourcePath));
+        const outputPath = importResumeJson(cfg.stateDir, String(params.runId), String(params.listingId), sourcePath);
+        const details = { runId: params.runId, listingId: params.listingId, outputPath };
+        return { content: [{ type: "text", text: JSON.stringify(details) }], details };
+      },
+    });
+
+    api.registerTool({
+      name: "job_search_render_resumes",
+      label: "Render JSON Resume files",
+      description: "Validate and render JSON Resume files for a run into HTML, PDF, or both using the configured CLI theme.",
+      parameters: Type.Object({
+        runId: Type.String(),
+        theme: Type.Optional(Type.String()),
+        format: Type.Optional(Type.Union([
+          Type.Literal("html"),
+          Type.Literal("pdf"),
+          Type.Literal("both"),
+        ])),
+      }),
+      async execute(_id, params) {
+        const cfg = resolvePluginConfig(api);
+        const theme = String(params.theme || cfg.defaultResumeTheme);
+        const format = normalizeResumeFormat(params.format ? String(params.format) : "both");
+        const details = renderRunResumes(repoRoot(), cfg.stateDir, String(params.runId), theme, format);
+        return { content: [{ type: "text", text: JSON.stringify(details) }], details };
+      },
+    });
+
+    api.registerTool({
       name: "job_search_export_run",
       label: "Export job search run",
       description: "Aggregate evaluation artifacts for a run and export them into an Excel workbook sorted by score.",
@@ -326,6 +547,5 @@ export default definePluginEntry({
         return { content: [{ type: "text", text: JSON.stringify(details) }], details };
       },
     });
-
   },
 });
