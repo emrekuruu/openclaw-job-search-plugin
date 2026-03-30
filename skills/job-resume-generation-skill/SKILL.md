@@ -1,6 +1,6 @@
 ---
 name: job-resume-generation-skill
-description: Thin resume-generation skill for the job-search plugin workflow. Use when a listing has already been retrieved and evaluated as keep or maybe, and the agent should take the candidate profile plus the selected listing and generate a tailored CV/resume, including ATS-aware rewrites of summaries and skills, optionally shaped for Reactive Resume.
+description: Thin resume-generation skill for the job-search plugin workflow. Use when a listing has already been retrieved and evaluated as keep or maybe, and the agent should take the candidate profile plus the listing description and generate a tailored CV/resume, including ATS-aware rewrites of summaries and skills, optionally shaped for Reactive Resume.
 ---
 
 # Job Resume Generation Skill
@@ -13,26 +13,31 @@ Use this after:
 1. search
 2. evaluate
 3. select a `keep` or `maybe` listing
-4. generate a tailored resume from the profile plus listing
+4. generate a tailored resume from the profile plus listing description
 
-The deterministic search/evaluation/export mechanics belong to the plugin. This skill owns the judgment and writing guidance for converting a candidate profile plus one selected listing into a tailored CV.
+The deterministic search/evaluation/export mechanics belong to the plugin. This skill owns the judgment and writing guidance for converting a candidate profile plus one listing description into a tailored CV.
 
 ## Inputs
 
-Expect:
+Canonical required inputs:
 - `profilePath`: path to the candidate profile
-- selected listing content, or path to the selected listing JSON/artifact
-- optional evaluation context such as:
-  - `decision`
-  - `score`
-  - evaluator reasoning
-  - target company/title
+- `listingDescription`: the job description text to tailor against
+
+Optional inputs:
+- `jobTitle`
+- `company`
+- `listingUrl`
+- `decision`
+- `score`
+- `evaluationNotes`
+
+Do not require a retrieval artifact or listing JSON path unless some outer workflow happens to provide one. For resume generation, the profile and listing description are the real inputs that matter.
 
 ## Responsibilities
 
 The agent using this skill should:
 - read the candidate profile from the provided `profilePath`
-- read the chosen listing carefully
+- read the provided `listingDescription` carefully
 - identify must-have and nice-to-have requirements
 - identify exact keyword matches and adjacent transferable experience
 - generate a tailored CV/resume that stays truthful to the profile
@@ -51,7 +56,7 @@ The agent using this skill should:
 
 ### 1. Build a fit map
 
-Extract from the listing:
+Extract from the listing description:
 - role title and scope
 - core responsibilities
 - required skills
