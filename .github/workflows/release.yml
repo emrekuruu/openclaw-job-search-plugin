@@ -25,4 +25,4 @@ jobs:
       - name: Publish package to ClawHub
         env:
           CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
-        run: clawhub package publish https://github.com/emrekuruu/openclaw-job-search-plugin
+        run: clawhub package publish . --source-repo https://github.com/emrekuruu/openclaw-job-search-plugin
