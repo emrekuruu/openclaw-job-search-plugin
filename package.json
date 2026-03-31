@@ -5,7 +5,10 @@
   "openclaw": {
     "extensions": [
       "./index.ts"
-    ]
+    ],
+    "compat": {
+      "pluginApi": ">=2026.3.24"
+    }
   },
   "dependencies": {
     "@sinclair/typebox": "^0.34.41",

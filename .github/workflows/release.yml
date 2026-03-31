@@ -1,23 +1,73 @@
-name: Publish to ClawHub
+name: Release and Publish to ClawHub
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  publish:
+  release:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Setup Node
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Decide version bump from commit message
+        id: bump
+        shell: bash
+        run: |
+          COMMIT_MSG="$(git log -1 --pretty=%B)"
+          echo "commit_message<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$COMMIT_MSG" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+          shopt -s nocasematch
+          if [[ "$COMMIT_MSG" =~ BREAKING\ CHANGE ]] || [[ "$COMMIT_MSG" =~ ^[a-z]+![:\(] ]]; then
+            BUMP=major
+          elif [[ "$COMMIT_MSG" =~ ^feat(\(.+\))?: ]]; then
+            BUMP=minor
+          elif [[ "$COMMIT_MSG" =~ ^fix(\(.+\))?: ]]; then
+            BUMP=patch
+          else
+            BUMP=patch
+          fi
+          shopt -u nocasematch
+
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+          echo "Selected bump: $BUMP"
+
+      - name: Bump package version
+        id: version
+        shell: bash
+        run: |
+          NEW_VERSION=$(npm version ${{ steps.bump.outputs.bump }} --no-git-tag-version)
+          NEW_VERSION=${NEW_VERSION#v}
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "New version: $NEW_VERSION"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Verify package tarball
+        run: npm pack --dry-run
 
       - name: Install ClawHub CLI
         run: npm install -g clawhub
@@ -33,3 +83,16 @@ jobs:
             --source-repo https://github.com/emrekuruu/openclaw-job-search-plugin \
             --source-commit "$GITHUB_SHA" \
             --source-ref "$GITHUB_REF_NAME"
+
+      - name: Commit version bump
+        shell: bash
+        run: |
+          git add package.json package-lock.json
+          git commit -m "chore: release v${{ steps.version.outputs.version }} [skip ci]"
+
+      - name: Create and push tag
+        shell: bash
+        run: |
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin main
+          git push origin "v${{ steps.version.outputs.version }}"
