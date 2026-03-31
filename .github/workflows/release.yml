@@ -28,4 +28,8 @@ jobs:
         run: clawhub login --token "$CLAWHUB_TOKEN" --no-browser
 
       - name: Publish package to ClawHub
-        run: clawhub package publish . --source-repo https://github.com/emrekuruu/openclaw-job-search-plugin
+        run: |
+          clawhub package publish . \
+            --source-repo https://github.com/emrekuruu/openclaw-job-search-plugin \
+            --source-commit "$GITHUB_SHA" \
+            --source-ref "$GITHUB_REF_NAME"
