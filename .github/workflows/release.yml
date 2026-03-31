@@ -22,7 +22,10 @@ jobs:
       - name: Install ClawHub CLI
         run: npm install -g clawhub
 
-      - name: Publish package to ClawHub
+      - name: Login to ClawHub
         env:
           CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+        run: clawhub login --token "$CLAWHUB_TOKEN" --no-browser
+
+      - name: Publish package to ClawHub
         run: clawhub package publish . --source-repo https://github.com/emrekuruu/openclaw-job-search-plugin
