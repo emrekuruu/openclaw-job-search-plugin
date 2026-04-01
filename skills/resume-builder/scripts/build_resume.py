@@ -22,6 +22,13 @@ GROUP_LABELS = {
     "preferences": {"Preferred locations", "Work modes", "Salary expectation", "Freshness preference"},
 }
 
+ANALYSIS_PREFIXES = (
+    "candidate has strong relevance",
+    "prefer roles where",
+    "tailor emphasis around",
+    "source profile lacks enough",
+)
+
 
 def normalize_text(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip())
@@ -129,11 +136,6 @@ def extract_contact(profile):
     return email, phone, linkedin
 
 
-def slugify(text: str) -> str:
-    value = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
-    return value or "item"
-
-
 def clean_bullet(text: str) -> str:
     return re.sub(r"^\s*(?:[-*•]|\d+[.)])\s+", "", text).strip()
 
@@ -147,14 +149,34 @@ def split_title_and_area(line: str):
     return parts[0], ", ".join(parts[1:])
 
 
+def dedupe(items):
+    seen = set()
+    output = []
+    for item in items:
+        norm = normalize_text(item).lower()
+        if norm and norm not in seen:
+            seen.add(norm)
+            output.append(item)
+    return output
+
+
+def is_analysis_line(text: str) -> bool:
+    lower = normalize_text(text).lower()
+    return any(lower.startswith(prefix) for prefix in ANALYSIS_PREFIXES)
+
+
 def infer_label(profile, tailored):
+    matched = [x.lower() for x in tailored.get("match_score", {}).get("matched_keywords", [])]
+    if any(term in matched for term in ["frontend", "react", "javascript", "full-stack"]):
+        return "Full-Stack Engineer"
+
     desired_roles = []
     for entry in profile["sections"].get("target_direction", []):
         if isinstance(entry, dict) and entry.get("label") == "Desired roles":
             desired_roles.extend(entry.get("items", []))
     preferred = [
-        "Backend Engineer",
         "Full Stack Engineer",
+        "Backend Engineer",
         "Software Engineer",
         "Junior Software Engineer",
         "Full Stack Developer",
@@ -164,74 +186,120 @@ def infer_label(profile, tailored):
     for role in preferred:
         if role in desired_roles:
             return role
-    current_title = identity_value(profile, "current title")
-    if current_title:
-        return current_title
-    matched = tailored.get("match_score", {}).get("matched_keywords", [])
-    if "backend" in matched:
-        return "Backend Engineer"
-    if "full" in matched and "stack" in matched:
-        return "Full Stack Engineer"
-    return "Software Engineer"
+    return identity_value(profile, "current title") or "Software Engineer"
 
 
 def infer_summary(profile, tailored):
-    summary = tailored.get("tailored_cv", {}).get("summary", "").strip()
-    if summary:
-        return summary
+    skills = [x.lower() for x in collect_section_items(profile, "skills")]
     exp = collect_section_items(profile, "experience_summary")
-    return exp[0] if exp else "Early-career software engineer with truthful, profile-grounded experience."
+
+    strengths = []
+    if any("javascript" in x for x in skills):
+        strengths.append("JavaScript")
+    if any("react" in x for x in skills):
+        strengths.append("React")
+    if any("postgresql" in x for x in skills):
+        strengths.append("PostgreSQL")
+    if any("mysql" in x.lower() for x in exp):
+        strengths.append("MySQL")
+    if any(x == "java" or "java spring boot" in x for x in skills):
+        strengths.append("Java and Spring Boot")
+    if any("api" in line.lower() for line in exp):
+        strengths.append("API integration")
+
+    lead = ", ".join(dedupe(strengths)[:4]) or "full-stack application development"
+    role = infer_label(profile, tailored)
+    return (
+        f"Early-career {role.lower()} with internship experience building internal banking and mobile application software. "
+        f"Hands-on experience with {lead}, plus exposure to backend, frontend, and database-backed product development. "
+        "Strong fit for junior full-stack or backend-leaning roles that value solid engineering fundamentals, product thinking, and fast learning."
+    )
+
+
+def select_tailored_points(tailored, keywords, banned_keywords=None):
+    banned_keywords = banned_keywords or []
+    points = []
+    for point in tailored.get("tailored_cv", {}).get("highlighted_experience", []):
+        text = clean_bullet(point)
+        lower = text.lower()
+        if not text or is_analysis_line(text):
+            continue
+        if any(keyword in lower for keyword in keywords) and not any(bad in lower for bad in banned_keywords):
+            points.append(text)
+    return dedupe(points)
+
+
+def ensure_sentence(text: str) -> str:
+    text = normalize_text(text)
+    if not text:
+        return text
+    if text.endswith((".", "!", "?")):
+        return text
+    return text + "."
+
+
+def rewrite_ykt_bullets(profile):
+    experience_lines = collect_section_items(profile, "experience_summary")
+    bullets = []
+    if any("internal banking applications" in line.lower() for line in experience_lines):
+        bullets.append("Built software for internal banking applications with a focus on secure and efficient internal workflows.")
+    if any("react on the frontend" in line.lower() for line in experience_lines) and any("java and spring boot" in line.lower() for line in experience_lines):
+        bullets.append("Implemented React frontend flows and contributed to backend and BFF functionality using Java and Spring Boot.")
+    if any("postgresql" in line.lower() for line in experience_lines):
+        bullets.append("Worked with PostgreSQL-backed data access to support application behavior and user-facing flows.")
+    if any("full-stack banking application" in line.lower() for line in experience_lines):
+        bullets.append("Contributed to a full-stack banking application used by internal users in a product-oriented engineering environment.")
+    return dedupe(bullets)
+
+
+def rewrite_asis_bullets(profile):
+    experience_lines = collect_section_items(profile, "experience_summary")
+    bullets = []
+    if any("real-time bus tracking" in line.lower() for line in experience_lines):
+        bullets.append("Developed mobile application features for real-time bus tracking and card balance inquiry.")
+    if any("open data apis" in line.lower() for line in experience_lines):
+        bullets.append("Integrated open data APIs to support live transportation and balance-related functionality.")
+    if any("mvvm architecture" in line.lower() for line in experience_lines):
+        bullets.append("Worked within an Android MVVM architecture to keep implementation structured and maintainable.")
+    return dedupe(bullets)
+
+
+def rewrite_project_bullets(profile):
+    experience_lines = collect_section_items(profile, "experience_summary")
+    bullets = []
+    if any(all(term in line.lower() for term in ["django", "react", "python"]) for line in experience_lines):
+        bullets.append("Built academic and personal projects using Django, React, MySQL, and Python across web development scenarios.")
+    if any("machine learning" in line.lower() or "route optimization" in line.lower() for line in experience_lines):
+        bullets.append("Worked on data-oriented projects involving machine learning, data science, and route optimization.")
+    return dedupe(bullets)
 
 
 def infer_work_entries(profile, tailored):
     experience_lines = collect_section_items(profile, "experience_summary")
-    tailored_points = [clean_bullet(x) for x in tailored.get("tailored_cv", {}).get("highlighted_experience", []) if clean_bullet(x)]
     entries = []
 
     if any("yapı kredi teknoloji" in line.lower() for line in experience_lines):
-        bullets = []
-        for point in tailored_points:
-            lower = point.lower()
-            if any(term in lower for term in ["bank", "react", "spring", "postgres", "backend", "bff"]):
-                bullets.append(point)
-        if not bullets:
-            bullets = [
-                "Built software for internal banking applications with a focus on efficiency and security.",
-                "Worked across React frontend flows plus Java and Spring Boot backend/BFF layers.",
-                "Managed PostgreSQL-backed data access for internal application workflows.",
-            ]
         entries.append({
             "name": "Yapı Kredi Teknoloji",
             "position": "Software Engineering Intern",
-            "summary": "Internal banking application engineering internship.",
-            "highlights": bullets[:4],
+            "summary": "Contributed to internal banking product development in a full-stack engineering environment.",
+            "highlights": rewrite_ykt_bullets(profile)[:4],
         })
 
     if any("asis elektronik" in line.lower() for line in experience_lines):
-        bullets = []
-        for point in tailored_points:
-            lower = point.lower()
-            if any(term in lower for term in ["bus", "mvvm", "android", "api"]):
-                bullets.append(point)
-        if not bullets:
-            bullets = [
-                "Developed mobile application features for real-time bus tracking and card balance inquiry.",
-                "Integrated open data APIs in an Android MVVM architecture.",
-            ]
         entries.append({
             "name": "Asis Elektronik ve Bilişim Sistemleri",
             "position": "Software Engineering / Mobile Development Intern",
-            "summary": "Mobile application and API-integration internship.",
-            "highlights": bullets[:4],
+            "summary": "Contributed to mobile application development and API-driven features.",
+            "highlights": rewrite_asis_bullets(profile)[:4],
         })
 
-    project_lines = [line for line in experience_lines if any(term in line.lower() for term in ["django", "machine learning", "route optimization", "mysql", "python"])]
-    if project_lines:
+    if any(any(term in line.lower() for term in ["django", "react", "mysql", "python", "machine learning", "route optimization"]) for line in experience_lines):
         entries.append({
             "name": "Academic and Project Work",
             "position": "Software Projects",
-            "summary": "Selected academic and personal software projects.",
-            "highlights": project_lines[:4],
+            "summary": "Built academic and personal projects across web development and data-oriented problem solving.",
+            "highlights": rewrite_project_bullets(profile)[:4],
         })
 
     return entries
@@ -239,23 +307,19 @@ def infer_work_entries(profile, tailored):
 
 def infer_skills(profile, tailored):
     skill_items = collect_section_items(profile, "skills")
-    matched = tailored.get("match_score", {}).get("matched_keywords", [])
+    matched = [x.lower() for x in tailored.get("match_score", {}).get("matched_keywords", [])]
+    priority_terms = [
+        "javascript", "react", "postgresql", "mysql", "git", "api", "backend", "frontend", "full stack", "python", "java", "spring"
+    ]
     prioritized = []
     leftovers = []
     for item in skill_items:
         lower = item.lower()
-        if any(keyword.lower() in lower for keyword in matched):
+        if any(term in lower for term in matched + priority_terms):
             prioritized.append(item)
         else:
             leftovers.append(item)
-    ordered = []
-    seen = set()
-    for item in prioritized + leftovers:
-        norm = item.lower()
-        if norm not in seen:
-            seen.add(norm)
-            ordered.append(item)
-    return ordered
+    return dedupe(prioritized + leftovers)
 
 
 def infer_languages(profile):
@@ -293,8 +357,8 @@ def build_json_resume(profile, tailored):
             "position": item["position"],
             "startDate": "",
             "endDate": "",
-            "summary": item["summary"],
-            "highlights": item["highlights"],
+            "summary": ensure_sentence(item["summary"]),
+            "highlights": [ensure_sentence(x) for x in item["highlights"]],
         })
 
     education = []
@@ -317,17 +381,15 @@ def build_json_resume(profile, tailored):
             "score": gpa,
         })
 
-    skills = []
-    for item in infer_skills(profile, tailored):
-        skills.append({"name": item, "level": "", "keywords": []})
+    skills = [{"name": item, "level": "", "keywords": []} for item in infer_skills(profile, tailored)]
 
     projects = []
     for item in infer_work_entries(profile, tailored):
         if item["name"] == "Academic and Project Work":
             projects.append({
                 "name": item["position"],
-                "description": item["summary"],
-                "highlights": item["highlights"],
+                "description": ensure_sentence(item["summary"]),
+                "highlights": [ensure_sentence(x) for x in item["highlights"]],
                 "keywords": [],
             })
 
@@ -363,9 +425,20 @@ def build_preview_text(json_resume):
     ]
     for work in json_resume.get("work", []):
         lines.append(f"{work.get('name', '')} — {work.get('position', '')}")
+        if work.get("summary"):
+            lines.append(work["summary"])
         for bullet in work.get("highlights", []):
             lines.append(f"• {bullet}")
         lines.append("")
+    lines.append("EDUCATION")
+    for edu in json_resume.get("education", []):
+        area = edu.get("area", "")
+        institution = edu.get("institution", "")
+        score = edu.get("score", "")
+        lines.append(f"• {area} — {institution}".strip())
+        if score:
+            lines.append(f"  GPA: {score}")
+    lines.append("")
     lines.append("SKILLS")
     for skill in json_resume.get("skills", [])[:16]:
         lines.append(f"• {skill.get('name', '')}")

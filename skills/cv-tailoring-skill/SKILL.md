@@ -12,6 +12,7 @@ This skill owns:
 - reading the target job description
 - extracting role-relevant keywords and requirements
 - rewriting and reordering existing content only
+- preserving the user's existing CV layout when asked
 - producing a structured tailored draft
 - producing a match score and gap analysis
 
@@ -43,7 +44,9 @@ This skill does **not** own:
 5. Prefer concise, achievement-oriented bullets, but do not exaggerate.
 6. If a keyword appears in the job description without clear candidate evidence, treat it as a gap.
 
-## Use the workflow script
+## Use the workflow scripts
+
+For structured tailoring analysis:
 
 ```bash
 python3 skills/cv-tailoring-skill/scripts/tailor_cv.py <candidate_profile.txt> <job_description.txt> --out <output.json>
@@ -55,8 +58,17 @@ The script produces a deterministic first pass containing:
 - `gap_analysis`
 - keyword coverage details
 
+For preserved-layout tailoring when the user wants the output to stay close to their existing CV format:
+
+```bash
+python3 skills/cv-tailoring-skill/scripts/preserve_base_cv.py <base_cv.md> <job_description.txt> --additional-info <optional_additional_info.md> --out-md <tailored.md> --out-html <tailored.html>
+```
+
+This mode keeps section order and titles fixed while allowing controlled rewrites, skill reordering, and relevant project swaps from verified additional info.
+
 ## Load references as needed
 
 - Read `references/ats_keywords_template.csv` when reviewing ATS-oriented keyword buckets.
 - Read `references/output-schema.md` before changing the output structure or validating the response shape.
+- Read `references/preserved-layout-mode.md` when the user wants the tailored CV to keep the same skeleton and only allow constrained edits.
 - Read `references/resume-builder-notes.md` only if you want guidance inspired by the external `resume-builder` skill without changing this skill's narrower scope.
