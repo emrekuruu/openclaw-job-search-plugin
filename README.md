@@ -5,7 +5,8 @@ An OpenClaw plugin for running a structured AI-assisted job search workflow.
 It helps you:
 - search for jobs with JobSpy
 - evaluate listings with OpenClaw agents
-- generate tailored resumes per listing
+- generate tailored text CVs per listing
+- bridge tailored CVs into JSON Resume
 - render resumes PDF
 
 This plugin is for people who want an autonomous job-search pipeline inside OpenClaw instead of a messy mix of notes, links, and one-off prompts.
@@ -25,9 +26,10 @@ In practice, the workflow looks like this:
 1. prepare a run for a profile
 2. retrieve listings
 3. review or evaluate the results with OpenClaw
-4. generate tailored resumes for strong matches
-5. render resumes to shareable files
-6. export the scored run to `.xlsx`
+4. generate tailored text CVs for strong matches
+5. convert those tailored CVs into JSON Resume files
+6. render resumes to shareable files
+7. export the scored run to `.xlsx`
 
 
 

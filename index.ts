@@ -379,6 +379,43 @@ function importResumeJson(stateDir: string, runId: string, listingId: string, so
   return destinationPath;
 }
 
+function buildResumeJsonFromTailored(repoDir: string, stateDir: string, runId: string, listingId: string, profilePath: string, tailoredCvPath: string) {
+  const scriptPath = path.join(repoDir, "skills", "resume-builder", "scripts", "build_resume.py");
+  requireExistingFile(scriptPath, "Resume bridge script");
+  requireExistingFile(profilePath, "Candidate profile");
+  requireExistingFile(tailoredCvPath, "Tailored CV JSON");
+
+  const python = resolvePythonCommand(repoDir);
+  const destinationPath = prepareResumePath(stateDir, runId, listingId);
+  const bridgeOutputPath = `${destinationPath}.bridge.json`;
+
+  const result = spawnSync(
+    python,
+    [scriptPath, profilePath, "--tailored-cv", tailoredCvPath, "--out", bridgeOutputPath],
+    { cwd: repoDir, encoding: "utf8" },
+  );
+  if (result.status !== 0) {
+    throw new Error(
+      [
+        `Resume bridge generation failed for listing ${listingId}.`,
+        (result.stderr || result.stdout || "").trim(),
+      ].filter(Boolean).join("\n"),
+    );
+  }
+
+  const bridge = readJson(bridgeOutputPath);
+  if (!bridge?.json_resume) {
+    throw new Error(`Resume bridge did not produce json_resume in ${bridgeOutputPath}`);
+  }
+
+  writeJson(destinationPath, bridge.json_resume);
+  return {
+    outputPath: destinationPath,
+    bridgeOutputPath,
+    previewText: bridge.preview_text || "",
+  };
+}
+
 export default definePluginEntry({
   id: "job-search",
   name: "Job Search",
@@ -507,6 +544,30 @@ export default definePluginEntry({
         const sourcePath = path.resolve(String(params.sourcePath));
         const outputPath = importResumeJson(cfg.stateDir, String(params.runId), String(params.listingId), sourcePath);
         const details = { runId: params.runId, listingId: params.listingId, outputPath };
+        return { content: [{ type: "text", text: JSON.stringify(details) }], details };
+      },
+    });
+
+    api.registerTool({
+      name: "job_search_build_resume_json",
+      label: "Build JSON Resume from tailored CV",
+      description: "Bridge the text-first tailoring flow into the renderer pipeline by converting cv-tailoring output plus the base profile into runtime JSON Resume.",
+      parameters: Type.Object({
+        runId: Type.String(),
+        listingId: Type.String(),
+        profilePath: Type.String(),
+        tailoredCvPath: Type.String(),
+      }),
+      async execute(_id, params) {
+        const cfg = resolvePluginConfig(api);
+        const details = buildResumeJsonFromTailored(
+          repoRoot(),
+          cfg.stateDir,
+          String(params.runId),
+          String(params.listingId),
+          path.resolve(String(params.profilePath)),
+          path.resolve(String(params.tailoredCvPath)),
+        );
         return { content: [{ type: "text", text: JSON.stringify(details) }], details };
       },
     });

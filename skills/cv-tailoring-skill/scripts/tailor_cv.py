@@ -107,11 +107,24 @@ def build_summary(points, keywords):
 
 
 def build_tailored_cv(profile_text, points, summary_text):
-    return {
+    skills_lines = []
+    for line in extract_lines(profile_text):
+        lowered = line.lower()
+        if any(hint in lowered for hint in ["python", "sql", "excel", "aws", "docker", "kubernetes", "product", "analytics", "api"]):
+            cleaned = BULLET_RE.sub("", line).strip()
+            if cleaned and cleaned not in skills_lines:
+                skills_lines.append(cleaned)
+        if len(skills_lines) >= 8:
+            break
+
+    payload = {
         "summary": summary_text,
         "highlighted_experience": [p["text"] for p in points[:8]],
         "source_preservation_note": "All content is derived from the provided candidate profile. Do not invent experience.",
     }
+    if skills_lines:
+        payload["skills_or_keywords"] = skills_lines[:8]
+    return payload
 
 
 def build_gap_analysis(matched, missing):
@@ -130,9 +143,9 @@ def build_gap_analysis(matched, missing):
 
 def main():
     parser = argparse.ArgumentParser(description="Tailor a CV to a job description without inventing experience.")
-    parser.add_argument("candidate_profile_txt")
-    parser.add_argument("job_description_txt")
-    parser.add_argument("--out", default="cv_tailoring_output.json")
+    parser.add_argument("candidate_profile_txt", help="Path to candidate profile or CV text file")
+    parser.add_argument("job_description_txt", help="Path to job description text file")
+    parser.add_argument("--out", default="cv_tailoring_output.json", help="Output JSON file path")
     args = parser.parse_args()
 
     profile_text = Path(args.candidate_profile_txt).read_text(encoding="utf-8")

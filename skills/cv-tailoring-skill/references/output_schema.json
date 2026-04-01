@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CV Tailoring Output",
+  "type": "object",
+  "required": ["tailored_cv", "match_score", "gap_analysis"],
+  "properties": {
+    "tailored_cv": {
+      "type": "object",
+      "required": ["summary", "highlighted_experience", "skills_or_keywords", "source_preservation_note"],
+      "properties": {
+        "summary": { "type": "string" },
+        "highlighted_experience": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "skills_or_keywords": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "source_preservation_note": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "match_score": {
+      "type": "object",
+      "required": ["score", "matched_keywords", "missing_keywords", "method"],
+      "properties": {
+        "score": { "type": "number" },
+        "matched_keywords": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "missing_keywords": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "method": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "gap_analysis": {
+      "type": "object",
+      "required": ["strengths", "gaps", "notes"],
+      "properties": {
+        "strengths": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "gaps": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
