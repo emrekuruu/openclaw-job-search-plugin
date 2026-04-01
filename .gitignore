@@ -1,18 +1,7 @@
-.venv
-**/DS_Store
-**/.DS_Store
-**/__pycache__/
-**/*.pyc
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
 .vscode/
-.pytest_cache/
-
-# Generated runtime artifacts
-runtime-data/raw/*.json
-runtime-data/jobs/*.json
-runtime-data/search-runs/*.json
-runtime-data/search-runs/*.md
-runtime-data/search-plans/*.json
-runtime-data/exports/*.xlsx
-runtime-data/job-listings/
-runtime-data/evaluations/
-runtime-data/final-results/
+*.tgz

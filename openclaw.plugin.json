@@ -1,0 +1,24 @@
+{
+  "id": "job-search",
+  "name": "Job Search",
+  "description": "Concurrent job search workflow plugin with retrieval, evaluator fanout, export, and JSON Resume rendering.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "evaluationConcurrency": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Maximum concurrent evaluator subagent runs."
+      },
+      "evaluationModel": {
+        "type": "string",
+        "description": "Optional canonical provider/model override for evaluator subagents."
+      },
+      "defaultResumeTheme": {
+        "type": "string",
+        "description": "JSON Resume theme package name to use by default when rendering resumes. Use a working installed theme package such as jsonresume-theme-even unless a local custom theme is wired in."
+      }
+    }
+  }
+}

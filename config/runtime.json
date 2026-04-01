@@ -1,7 +1,0 @@
-{
-  "projectRoot": ".",
-  "pythonPath": ".venv/bin/python",
-  "outputBase": "runtime-data",
-  "defaultProfile": "runtime-data/profiles/sample-software-engineer-profile.md",
-  "searchDefaultsPath": "config/search-defaults.json"
-}

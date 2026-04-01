@@ -1,61 +1,72 @@
 ---
 name: job-search-skill
-description: Retrieval-only, candidate-aware job discovery for the job-search-bot project. Use when an agent must read a candidate profile, infer likely seniority and role family from that profile, build a focused search plan, execute live retrieval through the project runtime, and save normalized listings for later review. Reject obvious seniority, experience, and role-family mismatches during retrieval cleanup. Do not use for scoring, application help, resume tailoring, or interview preparation. Fail clearly if the profile, runtime, or live backend is unavailable; never use silent fallbacks.
+description: Thin agent-facing job search skill for the job-search plugin. Use when the agent should read a candidate profile, decide candidate understanding and search queries, and then call the plugin tools. JobSpy retrieval itself lives in this skill's Python script, while the plugin owns orchestration/state/export.
 ---
 
 # Job Search Skill
 
-Run **discovery only**.
+This skill is thin, but it still owns the JobSpy-specific retrieval worker.
 
-This skill owns:
-- profile reading
-- candidate seniority/role-family inference
-- focused search planning
-- live retrieval through the project runtime
-- normalization plus obvious-mismatch rejection
-- summary generation
+## Agent responsibilities
 
-This skill does **not** own:
-- ranking beyond obvious retrieval cleanup
-- application decisions
-- resume or cover-letter work
-- interview prep
+The agent should:
+- read the caller-provided candidate profile
+- decide candidate understanding
+- decide search queries
+- decide per-query filters
+- explain the reasoning clearly
+- normalize query objects before calling `job_search_prepare_run`
+- call the plugin tools instead of owning deterministic workflow mechanics itself
+- when doing a full workflow, follow `prompts/job-search-cron-orchestration-prompt.md` for agent/subagent orchestration outside the plugin
 
-## Enforce these rules
+Read `references/query-schema.md` before preparing run queries for retrieval.
 
-1. Resolve the project root from `JOB_SEARCH_BOT_ROOT`.
-2. Read `<project-root>/config/runtime.json` and use its `pythonPath`.
-3. Read the candidate profile before running anything.
-4. Infer candidate seniority, role family, stack/domain signals, preferred companies, locations, and work mode from the profile itself.
-5. Decide explicit retrieval filters from the profile, not just search text. Use structured filters such as site selection, remote/on-site intent, employment intent, job type, distance, recency, and company targeting when the backend supports them.
-6. Build a small, explicit search plan before retrieval.
-7. Reject obvious mismatches during cleanup, especially:
-   - `senior`, `sr`, `lead`, `staff`, `principal`, `manager`, `head`, `director`
-   - experience requirements clearly above the candidate profile
-   - role families outside the candidate target
-8. Fail clearly when inference, runtime resolution, or the live backend is missing or broken.
-9. Never fabricate fallback data.
+## Split of responsibilities
 
-## Use the workflow
+### Plugin owns
+- run creation
+- state-dir artifact layout
+- export / aggregation
+- runtime worker readiness checks and actionable failure messages
+
+### This skill owns
+- the JobSpy retrieval worker script
+- retrieval-specific guidance
+- cooperating with plugin-created `search.json`
+
+## Retrieval script
+
+JobSpy stays here:
+- `skills/job-search-skill/scripts/run_jobspy_search.py`
+
+The plugin calls this Python script to execute retrieval against the current state-backed run.
+
+## Python environment
+
+The retrieval worker depends on the plugin repo's Python environment defined in `pyproject.toml`.
+
+Recommended setup:
 
 ```bash
-<pythonPath> skills/job-search-skill/scripts/prepare_search_run.py
-<pythonPath> skills/job-search-skill/scripts/search_backend_jobspy.py
-<pythonPath> skills/job-search-skill/scripts/normalize_jobs.py
-<pythonPath> skills/job-search-skill/scripts/render_search_summary.py
+uv sync
 ```
 
-## Keep the search plan tight
+The plugin prefers `JOB_SEARCH_PYTHON` when set, otherwise `.venv/bin/python3`, then `python3`.
+If imports are missing, the plugin now fails early with setup guidance instead of surfacing an opaque runtime crash from the worker.
 
-- Prefer precision over recall.
-- Use only a small number of high-signal queries.
-- Search preferred companies directly when present.
-- Include junior/entry variants only when the profile supports them.
-- Do not widen into broad senior or adjacent-role searches just to increase count.
+## Retrieval philosophy
 
-## Load references as needed
+- default to full-time unless the profile explicitly asks for internship or contract work
+- the agent owns the search reasoning
+- the plugin owns deterministic artifact layout and export, not evaluator orchestration
+- runtime artifacts live under the OpenClaw state dir, not in the repo checkout
 
-- Read `references/search-plan-schema.md` before changing planning behavior or inspecting plan structure.
-- Read `references/retrieval-rules.md` when deciding what must be filtered or surfaced as a hard failure.
-- Read `references/run-notes.md` for project-runtime expectations.
-- Read `references/backend-notes.md` only if backend behavior matters.
+## Full workflow orchestration
+
+For full runs:
+- use the plugin to prepare the run and perform retrieval
+- read `search.json` to discover artifact paths
+- let OpenClaw orchestrate evaluator subagents itself
+- ensure each evaluator writes one JSON artifact into `plugin-runtimes/job-search/evaluations/<runId>/`
+- call `job_search_export_run` only after evaluation artifacts are present
+- use bounded concurrency; do not reuse a single locked session for multiple evaluator workers
