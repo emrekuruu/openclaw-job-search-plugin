@@ -7,7 +7,6 @@ from pathlib import Path
 
 WORD_RE = re.compile(r"[A-Za-z][A-Za-z0-9+.#/-]{1,}")
 BULLET_RE = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+")
-
 STOPWORDS = {
     "the", "and", "for", "with", "that", "this", "from", "into", "your", "their", "will", "have", "has", "had",
     "are", "was", "were", "job", "role", "team", "using", "use", "used", "you", "our", "about", "across",
@@ -17,16 +16,6 @@ STOPWORDS = {
     "qualifications", "candidate", "support", "supporting"
 }
 
-SECTION_HINTS = [
-    "summary",
-    "experience",
-    "work experience",
-    "projects",
-    "skills",
-    "education",
-    "certifications",
-]
-
 
 def normalize_token(token: str):
     return token.lower().strip(".,;:!?()[]{}\"'")
@@ -34,6 +23,10 @@ def normalize_token(token: str):
 
 def words(text: str):
     return [normalize_token(w) for w in WORD_RE.findall(text) if normalize_token(w)]
+
+
+def extract_lines(text: str):
+    return [ln.rstrip() for ln in text.splitlines() if ln.strip()]
 
 
 def sentence_split(text: str):
@@ -46,20 +39,10 @@ def extract_keywords(job_text: str, limit: int = 40):
     return [w for w, _ in freq.most_common(limit)]
 
 
-def extract_lines(text: str):
-    lines = [ln.rstrip() for ln in text.splitlines()]
-    return [ln for ln in lines if ln.strip()]
-
-
 def score_line(line: str, keywords):
     lowered = line.lower()
-    score = 0
-    hits = []
-    for kw in keywords:
-        if kw in lowered:
-            score += 1
-            hits.append(kw)
-    return score, hits
+    hits = [kw for kw in keywords if kw in lowered]
+    return len(hits), hits
 
 
 def extract_relevant_points(profile_text: str, keywords, limit: int = 12):
@@ -79,8 +62,8 @@ def extract_relevant_points(profile_text: str, keywords, limit: int = 12):
                 candidates.append((score, len(sent), sent, hits))
 
     candidates.sort(key=lambda x: (-x[0], x[1]))
-    seen = set()
     selected = []
+    seen = set()
     for score, _, text, hits in candidates:
         key = text.lower()
         if key in seen:
@@ -92,9 +75,17 @@ def extract_relevant_points(profile_text: str, keywords, limit: int = 12):
     return selected
 
 
+def compute_match_score(keywords, profile_text):
+    profile_words = set(words(profile_text))
+    matched = [kw for kw in keywords if kw in profile_words]
+    missing = [kw for kw in keywords if kw not in profile_words]
+    score = round(100 * len(matched) / max(len(keywords), 1), 1)
+    return score, matched, missing
+
+
 def build_summary(points, keywords):
     if not points:
-        return "Candidate profile needs more role-relevant detail before a truthful tailored summary can be produced."
+        return "Source profile lacks enough role-relevant evidence for a truthful tailored summary."
 
     top_terms = []
     seen = set()
@@ -108,39 +99,11 @@ def build_summary(points, keywords):
         if len(top_terms) >= 6:
             break
 
-    if not top_terms:
-        top_terms = keywords[:6]
-
     return (
-        "Profile emphasizes experience relevant to "
-        + ", ".join(top_terms)
-        + ". Tailor section ordering and bullet emphasis around these verified areas only."
+        "Tailor emphasis around verified experience in "
+        + ", ".join(top_terms or keywords[:6])
+        + ". Reorder and rewrite only the content supported by the source profile."
     )
-
-
-def compute_match_score(keywords, profile_text):
-    profile_words = set(words(profile_text))
-    matched = [kw for kw in keywords if kw in profile_words]
-    missing = [kw for kw in keywords if kw not in profile_words]
-    score = round(100 * len(matched) / max(len(keywords), 1), 1)
-    return score, matched, missing
-
-
-def build_gap_analysis(missing_keywords, matched_keywords):
-    strengths = matched_keywords[:12]
-    gaps = missing_keywords[:12]
-    notes = []
-    if gaps:
-        notes.append("These keywords appear in the job description but are not clearly supported in the candidate profile.")
-        notes.append("Do not add them unless the candidate confirms real experience.")
-    else:
-        notes.append("The profile already covers most top keywords extracted from the job description.")
-
-    return {
-        "strengths": strengths,
-        "gaps": gaps,
-        "notes": notes,
-    }
 
 
 def build_tailored_cv(profile_text, points, summary_text):
@@ -154,11 +117,27 @@ def build_tailored_cv(profile_text, points, summary_text):
         if len(skills_lines) >= 8:
             break
 
-    return {
+    payload = {
         "summary": summary_text,
         "highlighted_experience": [p["text"] for p in points[:8]],
-        "skills_or_keywords": skills_lines[:8],
-        "source_preservation_note": "All content is derived from the provided candidate profile. Reorder and rewrite only."
+        "source_preservation_note": "All content is derived from the provided candidate profile. Do not invent experience.",
+    }
+    if skills_lines:
+        payload["skills_or_keywords"] = skills_lines[:8]
+    return payload
+
+
+def build_gap_analysis(matched, missing):
+    notes = []
+    if missing:
+        notes.append("These requirements are visible in the job description but not clearly evidenced in the candidate profile.")
+        notes.append("Do not add them unless the candidate confirms real experience.")
+    else:
+        notes.append("The candidate profile covers most extracted high-signal keywords.")
+    return {
+        "strengths": matched[:12],
+        "gaps": missing[:12],
+        "notes": notes,
     }
 
 
@@ -173,20 +152,19 @@ def main():
     job_text = Path(args.job_description_txt).read_text(encoding="utf-8")
 
     keywords = extract_keywords(job_text)
-    match_score, matched, missing = compute_match_score(keywords, profile_text)
     points = extract_relevant_points(profile_text, keywords)
-    summary_text = build_summary(points, keywords)
+    match_score, matched, missing = compute_match_score(keywords, profile_text)
 
     payload = {
-        "tailored_cv": build_tailored_cv(profile_text, points, summary_text),
+        "tailored_cv": build_tailored_cv(profile_text, points, build_summary(points, keywords)),
         "match_score": {
             "score": match_score,
             "matched_keywords": matched,
             "missing_keywords": missing,
             "method": "Simple keyword coverage against extracted job-description terms"
         },
-        "gap_analysis": build_gap_analysis(missing, matched),
-        "keyword_pool": keywords
+        "gap_analysis": build_gap_analysis(matched, missing),
+        "keyword_pool": keywords,
     }
 
     Path(args.out).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")

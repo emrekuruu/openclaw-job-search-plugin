@@ -1,73 +1,62 @@
 ---
 name: cv-tailoring-skill
-description: Tailor a candidate CV to a target job description using only provided experience. Use when the user asks to tailor a resume/CV, improve ATS alignment, score match against a job post, reorder or rewrite bullets without inventing experience, or produce a structured gap analysis from candidate profile + job description.
+description: Tailor a candidate CV or profile to a target job description using only provided experience. Use when the user asks to tailor a resume/CV, improve ATS alignment, score match against a job post, reorder or rewrite bullets without inventing experience, or produce a structured gap analysis from candidate profile + job description. This skill is for CV tailoring only, not live job retrieval, listing evaluation, application submission, or interview preparation.
 ---
 
 # CV Tailoring Skill
 
-## Purpose
+Tailor the CV **after** the target role is known.
 
-Tailor an existing CV to a target role while preserving truthfulness. Rewrite and reorder only; never invent experience, metrics, employers, dates, tools, or responsibilities that the candidate did not provide.
+This skill owns:
+- reading the candidate profile or existing CV
+- reading the target job description
+- extracting role-relevant keywords and requirements
+- rewriting and reordering existing content only
+- producing a structured tailored draft
+- producing a match score and gap analysis
 
-## Inputs
+This skill does **not** own:
+- live job retrieval
+- listing ranking or keep/drop decisions
+- submitting applications
+- fabricating stronger claims than the source profile supports
 
-Collect the minimum needed:
-- candidate profile or current CV text
-- target job description
-- optional target title, region, or seniority
+## Follow this workflow
 
-If the candidate profile is incomplete, ask for missing facts instead of guessing.
+1. Read the candidate profile or current CV first.
+2. Read the target job description.
+3. Extract must-have and high-signal keywords from the job description.
+4. Map those requirements to evidence that is explicitly present in the candidate material.
+5. Rewrite and reorder only the supported content.
+6. Produce output with:
+   - `tailored_cv`
+   - `match_score`
+   - `gap_analysis`
+7. Make unsupported requirements explicit in the gap analysis instead of silently smoothing them over.
 
-## Workflow
+## Enforce these rules
 
-1. Extract required skills, tools, and responsibilities from the job description.
-2. Identify explicit evidence already present in the candidate profile.
-3. Compute a simple keyword-based match score.
-4. Rewrite bullets to emphasize relevant evidence while keeping all claims grounded in the provided profile.
-5. Reorder sections or bullets for relevance when helpful.
-6. Produce structured output with:
-   - tailored CV
-   - match score
-   - gap analysis
+1. Never invent experience, tools, dates, employers, scope, certifications, or metrics.
+2. Only rewrite, reorder, compress, or clarify claims already supported by the input.
+3. If the source material is too weak or incomplete, say so clearly.
+4. Keep the output structured and easy to parse.
+5. Prefer concise, achievement-oriented bullets, but do not exaggerate.
+6. If a keyword appears in the job description without clear candidate evidence, treat it as a gap.
 
-## Output rules
-
-Always keep the response structured under these headings:
-- Tailored CV
-- Match Score
-- Gap Analysis
-
-Within the tailored CV:
-- preserve the candidate's actual background
-- prefer concise, achievement-oriented bullets
-- do not add fake numbers or outcomes
-- mark assumptions explicitly if any formatting choice is inferred
-
-## Script usage
-
-Use `scripts/tailor_cv.py` when you want a deterministic first pass from text files.
-
-Example:
+## Use the workflow script
 
 ```bash
-python3 skills/cv-tailoring-skill/scripts/tailor_cv.py candidate.txt job.txt --out cv_tailoring_output.json
+python3 skills/cv-tailoring-skill/scripts/tailor_cv.py <candidate_profile.txt> <job_description.txt> --out <output.json>
 ```
 
-The script returns a structured JSON payload with:
+The script produces a deterministic first pass containing:
 - `tailored_cv`
 - `match_score`
 - `gap_analysis`
-- supporting keyword coverage fields
+- keyword coverage details
 
-## References
+## Load references as needed
 
-Use these bundled references when helpful:
-- `references/ats_keywords_template.csv` for ATS-oriented keyword buckets
-- `references/output_schema.json` for the target output shape
-
-## Boundaries
-
-- Do not invent experience.
-- Do not claim proficiency that is not supported by the input.
-- Do not convert weak evidence into certainty.
-- If the user asks for stronger claims than the profile supports, say so plainly and keep the draft honest.
+- Read `references/ats_keywords_template.csv` when reviewing ATS-oriented keyword buckets.
+- Read `references/output-schema.md` before changing the output structure or validating the response shape.
+- Read `references/resume-builder-notes.md` only if you want guidance inspired by the external `resume-builder` skill without changing this skill's narrower scope.
