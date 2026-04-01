@@ -4,7 +4,6 @@ import json
 import re
 from pathlib import Path
 
-
 SECTION_HEADERS = {
     "## Identity": "identity",
     "## Target Direction": "target_direction",
@@ -24,17 +23,8 @@ GROUP_LABELS = {
 }
 
 
-def slug_title(name: str) -> str:
-    return name.replace("_", " ").title()
-
-
 def normalize_text(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip())
-
-
-def contains_term(text: str, term: str) -> bool:
-    pattern = r"(?<![A-Za-z0-9])" + re.escape(term) + r"(?![A-Za-z0-9])"
-    return re.search(pattern, text, flags=re.IGNORECASE) is not None
 
 
 def parse_candidate_profile(text: str):
@@ -106,85 +96,6 @@ def parse_candidate_profile(text: str):
     return data
 
 
-def joined_profile_text(profile):
-    chunks = []
-    for section_name in profile["section_order"]:
-        for entry in profile["sections"].get(section_name, []):
-            if isinstance(entry, dict) and "items" in entry:
-                chunks.append(entry["label"])
-                chunks.extend(entry["items"])
-            elif entry.get("type") == "field":
-                chunks.append(entry["label"])
-                chunks.append(entry["value"])
-            elif entry.get("type") == "item":
-                chunks.append(entry["text"])
-    return " | ".join(chunks)
-
-
-def extract_job_signals(job_text: str):
-    lowered = job_text.lower()
-    signals = {
-        "role": "Software Engineer, Fullstack" if "fullstack" in lowered else "Software Engineer",
-        "must_have": [],
-        "nice_to_have": [],
-        "priority_keywords": [
-            "backend",
-            "full stack",
-            "java",
-            "spring boot",
-            "postgresql",
-            "react",
-            "javascript",
-            "git",
-            "api",
-        ],
-    }
-    must_terms = [
-        "NodeJS",
-        "JavaScript",
-        "HTML",
-        "CSS",
-        "Vue",
-        "React",
-        "RESTful APIs",
-        "Git",
-        "unit testing",
-        "integration testing",
-        "English",
-    ]
-    nice_terms = [
-        "Google Cloud",
-        "Pub/Sub",
-        "Functions",
-        "App Engine",
-        "Vue3",
-        "Firestore",
-        "Redis",
-        "Memcached",
-    ]
-    for term in must_terms:
-        if term.lower() in lowered:
-            signals["must_have"].append(term)
-    for term in nice_terms:
-        if term.lower() in lowered:
-            signals["nice_to_have"].append(term)
-    return signals
-
-
-def strongest_techs(skill_entries):
-    ordered = ["Java", "Spring Boot", "PostgreSQL", "React", "JavaScript", "Python", "SQL", "Git"]
-    skill_text = " | ".join(skill_entries)
-    return [tech for tech in ordered if contains_term(skill_text, tech)]
-
-
-def collect_skill_entries(profile):
-    results = []
-    for entry in profile["sections"].get("skills", []):
-        if entry.get("type") == "item":
-            results.append(entry["text"])
-    return results
-
-
 def collect_section_items(profile, section_name):
     items = []
     for entry in profile["sections"].get(section_name, []):
@@ -197,309 +108,289 @@ def collect_section_items(profile, section_name):
     return items
 
 
-def build_summary(profile, job_signals):
-    skills = collect_skill_entries(profile)
-    techs = strongest_techs(skills)
-    lead = ", ".join(techs[:4]) if techs else "Java, Spring Boot, PostgreSQL, React"
-    return (
-        f"Junior Backend / Full-Stack Software Engineer with hands-on experience in {lead}. "
-        "Built backend and BFF functionality for an internal banking application, implemented React-based frontend flows, managed PostgreSQL-backed data access, and delivered API-integrated software across banking, mobile, and academic project environments. "
-        "Best aligned with backend and full-stack roles that value strong engineering fundamentals, maintainable systems, and product-focused delivery."
-    )
+def identity_value(profile, key, default=""):
+    return profile["identity"].get(key.lower(), default)
 
 
-def pick_explicit_support(profile, term):
-    haystack = joined_profile_text(profile)
-    mappings = {
-        "JavaScript": ["JavaScript"],
-        "React": ["React"],
-        "Git": ["Git"],
-        "English": ["English"],
-        "NodeJS": ["NodeJS", "Node.js"],
-        "HTML": ["HTML"],
-        "CSS": ["CSS"],
-        "Vue": ["Vue"],
-        "Vue3": ["Vue3"],
-        "Google Cloud": ["Google Cloud"],
-        "Pub/Sub": ["Pub/Sub"],
-        "Functions": ["Cloud Functions", "Google Cloud Functions"],
-        "App Engine": ["App Engine"],
-        "Firestore": ["Firestore"],
-        "Redis": ["Redis"],
-        "Memcached": ["Memcached"],
-        "unit testing": ["unit testing"],
-        "integration testing": ["integration testing"],
-    }
-    for alias in mappings.get(term, [term]):
-        if contains_term(haystack, alias):
-            return True
-    return False
+def extract_contact(profile):
+    email = ""
+    phone = ""
+    linkedin = ""
+    for entry in profile["sections"].get("identity", []):
+        if isinstance(entry, dict) and entry.get("label") == "Contact":
+            for item in entry.get("items", []):
+                lower = item.lower()
+                if lower.startswith("email:"):
+                    email = item.split(":", 1)[1].strip()
+                elif lower.startswith("phone:"):
+                    phone = item.split(":", 1)[1].strip()
+                elif "linkedin" in lower:
+                    linkedin = item
+    return email, phone, linkedin
 
 
-def pick_adjacent_evidence(profile, term):
-    haystack = joined_profile_text(profile)
-    mappings = {
-        "RESTful APIs": ["API", "APIs", "open data APIs"],
-    }
-    for alias in mappings.get(term, []):
-        if contains_term(haystack, alias):
-            return True
-    return False
+def slugify(text: str) -> str:
+    value = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+    return value or "item"
 
 
-def infer_experience_entries(profile):
+def clean_bullet(text: str) -> str:
+    return re.sub(r"^\s*(?:[-*•]|\d+[.)])\s+", "", text).strip()
+
+
+def split_title_and_area(line: str):
+    parts = [p.strip() for p in line.split(",")]
+    if not parts:
+        return "", ""
+    if len(parts) == 1:
+        return parts[0], ""
+    return parts[0], ", ".join(parts[1:])
+
+
+def infer_label(profile, tailored):
+    desired_roles = []
+    for entry in profile["sections"].get("target_direction", []):
+        if isinstance(entry, dict) and entry.get("label") == "Desired roles":
+            desired_roles.extend(entry.get("items", []))
+    preferred = [
+        "Backend Engineer",
+        "Full Stack Engineer",
+        "Software Engineer",
+        "Junior Software Engineer",
+        "Full Stack Developer",
+        "Java Developer",
+        "Python Developer",
+    ]
+    for role in preferred:
+        if role in desired_roles:
+            return role
+    current_title = identity_value(profile, "current title")
+    if current_title:
+        return current_title
+    matched = tailored.get("match_score", {}).get("matched_keywords", [])
+    if "backend" in matched:
+        return "Backend Engineer"
+    if "full" in matched and "stack" in matched:
+        return "Full Stack Engineer"
+    return "Software Engineer"
+
+
+def infer_summary(profile, tailored):
+    summary = tailored.get("tailored_cv", {}).get("summary", "").strip()
+    if summary:
+        return summary
     exp = collect_section_items(profile, "experience_summary")
+    return exp[0] if exp else "Early-career software engineer with truthful, profile-grounded experience."
+
+
+def infer_work_entries(profile, tailored):
+    experience_lines = collect_section_items(profile, "experience_summary")
+    tailored_points = [clean_bullet(x) for x in tailored.get("tailored_cv", {}).get("highlighted_experience", []) if clean_bullet(x)]
     entries = []
 
-    ykt = {"company": "Yapı Kredi Teknoloji", "title": "Software Engineering Intern", "bullets": []}
-    if any("internal banking applications" in x.lower() for x in exp):
-        ykt["bullets"].append("Built software for internal banking applications with a focus on efficient and secure workflows for internal users.")
-    if any("react on the frontend" in x.lower() for x in exp) and any("java and spring boot" in x.lower() for x in exp):
-        ykt["bullets"].append("Implemented React-based frontend flows and Java/Spring Boot backend and BFF functionality for full-stack delivery.")
-    if any("postgresql" in x.lower() for x in exp):
-        ykt["bullets"].append("Managed PostgreSQL data access to support core banking application behavior.")
-    if ykt["bullets"]:
-        entries.append(ykt)
+    if any("yapı kredi teknoloji" in line.lower() for line in experience_lines):
+        bullets = []
+        for point in tailored_points:
+            lower = point.lower()
+            if any(term in lower for term in ["bank", "react", "spring", "postgres", "backend", "bff"]):
+                bullets.append(point)
+        if not bullets:
+            bullets = [
+                "Built software for internal banking applications with a focus on efficiency and security.",
+                "Worked across React frontend flows plus Java and Spring Boot backend/BFF layers.",
+                "Managed PostgreSQL-backed data access for internal application workflows.",
+            ]
+        entries.append({
+            "name": "Yapı Kredi Teknoloji",
+            "position": "Software Engineering Intern",
+            "summary": "Internal banking application engineering internship.",
+            "highlights": bullets[:4],
+        })
 
-    asis = {"company": "Asis Elektronik ve Bilişim Sistemleri", "title": "Software Engineering / Mobile Development Intern", "bullets": []}
-    if any("real-time bus tracking" in x.lower() for x in exp):
-        asis["bullets"].append("Built mobile application features for real-time bus tracking and card balance inquiry.")
-    if any("open data apis" in x.lower() for x in exp):
-        asis["bullets"].append("Integrated open data APIs to support live transportation and balance-related functionality.")
-    if any("mvvm architecture" in x.lower() for x in exp):
-        asis["bullets"].append("Developed within an Android MVVM architecture to keep implementation structured and maintainable.")
-    if asis["bullets"]:
-        entries.append(asis)
+    if any("asis elektronik" in line.lower() for line in experience_lines):
+        bullets = []
+        for point in tailored_points:
+            lower = point.lower()
+            if any(term in lower for term in ["bus", "mvvm", "android", "api"]):
+                bullets.append(point)
+        if not bullets:
+            bullets = [
+                "Developed mobile application features for real-time bus tracking and card balance inquiry.",
+                "Integrated open data APIs in an Android MVVM architecture.",
+            ]
+        entries.append({
+            "name": "Asis Elektronik ve Bilişim Sistemleri",
+            "position": "Software Engineering / Mobile Development Intern",
+            "summary": "Mobile application and API-integration internship.",
+            "highlights": bullets[:4],
+        })
 
-    projects = {"company": "Academic and Project Work", "title": "Software Projects", "bullets": []}
-    if any("django" in x.lower() and "react" in x.lower() and "python" in x.lower() for x in exp):
-        projects["bullets"].append("Built projects with Django, React, MySQL, and Python across web development and data-oriented problem spaces.")
-    if any("machine learning" in x.lower() or "route optimization" in x.lower() for x in exp):
-        projects["bullets"].append("Applied machine learning, data science, and route optimization work in academic projects.")
-    if projects["bullets"]:
-        entries.append(projects)
+    project_lines = [line for line in experience_lines if any(term in line.lower() for term in ["django", "machine learning", "route optimization", "mysql", "python"])]
+    if project_lines:
+        entries.append({
+            "name": "Academic and Project Work",
+            "position": "Software Projects",
+            "summary": "Selected academic and personal software projects.",
+            "highlights": project_lines[:4],
+        })
 
     return entries
 
 
-def build_experience(profile, job_signals):
-    return infer_experience_entries(profile)
-
-
-def build_skills(profile, job_signals):
-    original_items = collect_skill_entries(profile)
-    seen = set()
+def infer_skills(profile, tailored):
+    skill_items = collect_section_items(profile, "skills")
+    matched = tailored.get("match_score", {}).get("matched_keywords", [])
     prioritized = []
     leftovers = []
-    for kw in job_signals["priority_keywords"]:
-        for item in original_items:
-            key = item.lower()
-            if key in seen:
-                continue
-            if contains_term(item, kw):
-                prioritized.append(item)
-                seen.add(key)
-    for item in original_items:
-        key = item.lower()
-        if key not in seen:
-            leftovers.append(item)
-            seen.add(key)
-    return prioritized + sorted(leftovers, key=str.lower)
-
-
-def dedupe_preserve_order(items):
-    seen = set()
-    result = []
-    for item in items:
-        norm = normalize_text(item).lower()
-        if norm and norm not in seen:
-            seen.add(norm)
-            result.append(item)
-    return result
-
-
-def tailor_simple_items(section_name, items, job_signals):
-    updated = []
-    for item in items:
-        text = item
-        if section_name == "experience_summary":
-            text = text.replace("Worked on a full-stack banking application", "Built software for a full-stack banking application")
-            text = text.replace("worked on backend and BFF layers", "implemented backend and BFF functionality")
-            text = text.replace("Built academic and project work in", "Built projects using")
-        updated.append(text)
-    return dedupe_preserve_order(updated)
-
-
-def tailor_grouped_section(section_name, entries, job_signals):
-    result = []
-    for entry in entries:
-        if isinstance(entry, dict) and "items" in entry:
-            items = list(entry["items"])
-            if section_name in {"target_direction", "preferences"}:
-                if entry["label"] == "Desired roles":
-                    priority = [
-                        "Backend Engineer",
-                        "Full Stack Engineer",
-                        "Software Engineer",
-                        "Junior Software Engineer",
-                        "Full Stack Developer",
-                        "Java Developer",
-                        "Python Developer",
-                    ]
-                    items = sorted(items, key=lambda x: (priority.index(x) if x in priority else 999, x.lower()))
-            result.append({"label": entry["label"], "items": dedupe_preserve_order(items)})
-        elif entry.get("type") == "item":
-            result.append({"type": "item", "text": entry["text"]})
-        elif entry.get("type") == "field":
-            result.append(entry)
-    return result
-
-
-def build_full_cv(profile, job_signals, summary, experience_items):
-    full_cv = []
-    for section_name in profile["section_order"]:
-        original_entries = profile["sections"][section_name]
-
-        if section_name == "identity":
-            identity_entries = []
-            for entry in original_entries:
-                if entry.get("type") == "field":
-                    identity_entries.append(entry)
-                elif isinstance(entry, dict) and "items" in entry:
-                    identity_entries.append({"label": entry["label"], "items": dedupe_preserve_order(entry["items"])})
-                else:
-                    identity_entries.append(entry)
-            identity_entries.append({"type": "field", "label": "Tailored Headline", "value": "Junior Backend / Full-Stack Software Engineer"})
-            full_cv.append({"section": section_name, "entries": identity_entries})
-            continue
-
-        if section_name == "experience_summary":
-            experience_entries = []
-            for item in experience_items:
-                experience_entries.append({
-                    "type": "role",
-                    "company": item["company"],
-                    "title": item["title"],
-                    "bullets": dedupe_preserve_order(item["bullets"]),
-                })
-            original_simple = collect_section_items(profile, section_name)
-            original_simple = tailor_simple_items(section_name, original_simple, job_signals)
-            experience_entries.append({"type": "original_items", "items": original_simple})
-            full_cv.append({"section": section_name, "entries": experience_entries})
-            continue
-
-        if section_name == "skills":
-            skill_items = build_skills(profile, job_signals)
-            full_cv.append({"section": section_name, "entries": [{"type": "items", "items": skill_items}]})
-            continue
-
-        tailored_entries = tailor_grouped_section(section_name, original_entries, job_signals)
-        full_cv.append({"section": section_name, "entries": tailored_entries})
-    return full_cv
-
-
-def build_gap_analysis(profile, job_signals):
-    supported = []
-    adjacent_evidence = []
-    unsupported = []
-    for term in job_signals["must_have"] + job_signals["nice_to_have"]:
-        if pick_explicit_support(profile, term):
-            supported.append(term)
-        elif pick_adjacent_evidence(profile, term):
-            adjacent_evidence.append(term)
+    for item in skill_items:
+        lower = item.lower()
+        if any(keyword.lower() in lower for keyword in matched):
+            prioritized.append(item)
         else:
-            unsupported.append(term)
-    return {
-        "supported": supported,
-        "adjacent_evidence": adjacent_evidence,
-        "unsupported": unsupported,
-        "notes": [
-            "Keep backend/full-stack emphasis on Java, Spring Boot, PostgreSQL, React, JavaScript, Git, unit testing, and API integration where directly supported.",
-            "Treat API integration as adjacent evidence for RESTful API work, not proof of API design ownership.",
-            "Treat unit testing and integration testing separately; do not promote one into the other.",
-            "Preserve lower-priority content such as projects, activities, volunteer work, and additional experience; deprioritize rather than remove.",
-            "Do not claim NodeJS, Vue/Vue3, Google Cloud, Firestore, Redis, Memcached, or integration testing unless the candidate confirms them.",
-        ],
-    }
+            leftovers.append(item)
+    ordered = []
+    seen = set()
+    for item in prioritized + leftovers:
+        norm = item.lower()
+        if norm not in seen:
+            seen.add(norm)
+            ordered.append(item)
+    return ordered
 
 
-def render_entry(entry):
-    if entry.get("type") == "field":
-        return [f"{entry['label']}: {entry['value']}"]
-    if entry.get("type") == "summary":
-        return [entry["text"]]
-    if entry.get("type") == "role":
-        lines = [f"{entry['company']} — {entry['title']}"]
-        lines.extend([f"• {b}" for b in entry["bullets"]])
-        return lines
-    if entry.get("type") == "items":
-        return [f"• {item}" for item in entry["items"]]
-    if entry.get("type") == "original_items":
-        return [f"• {item}" for item in entry["items"]]
-    if isinstance(entry, dict) and "items" in entry:
-        lines = [entry["label"]]
-        lines.extend([f"• {item}" for item in entry["items"]])
-        return lines
-    if entry.get("type") == "item":
-        return [f"• {entry['text']}"]
-    return []
-
-
-def build_polished_text(profile, headline, summary, full_cv_sections):
-    name = profile["identity"].get("name", "")
-    lines = [name, headline, "", "SUMMARY", summary, ""]
-    title_map = {
-        "identity": "IDENTITY",
-        "target_direction": "TARGET DIRECTION",
-        "preferences": "PREFERENCES",
-        "experience_summary": "EXPERIENCE",
-        "skills": "SKILLS",
-        "education": "EDUCATION",
-        "target_companies": "TARGET COMPANIES",
-        "constraints": "CONSTRAINTS",
-        "notes": "NOTES",
-    }
-    for section in full_cv_sections:
-        section_name = section["section"]
-        if section_name == "identity":
+def infer_languages(profile):
+    notes = collect_section_items(profile, "notes")
+    languages = []
+    for line in notes:
+        if ":" not in line:
             continue
-        lines.append(title_map.get(section_name, slug_title(section_name).upper()))
-        for entry in section["entries"]:
-            lines.extend(render_entry(entry))
+        name, fluency = [part.strip() for part in line.split(":", 1)]
+        if name.lower() in {"turkish", "english", "german"}:
+            languages.append({"language": name, "fluency": fluency})
+    return languages
+
+
+def build_json_resume(profile, tailored):
+    email, phone, linkedin = extract_contact(profile)
+    name = identity_value(profile, "name")
+    location = identity_value(profile, "location")
+    basics = {
+        "name": name,
+        "label": infer_label(profile, tailored),
+        "email": email,
+        "phone": phone,
+        "location": {"city": location.split(",")[0].strip() if location else "", "countryCode": "TR", "region": location},
+        "summary": infer_summary(profile, tailored),
+        "profiles": [],
+    }
+    if linkedin:
+        basics["profiles"].append({"network": "LinkedIn", "username": "", "url": ""})
+
+    work = []
+    for item in infer_work_entries(profile, tailored):
+        work.append({
+            "name": item["name"],
+            "position": item["position"],
+            "startDate": "",
+            "endDate": "",
+            "summary": item["summary"],
+            "highlights": item["highlights"],
+        })
+
+    education = []
+    edu_lines = collect_section_items(profile, "education")
+    degree, institution = "", ""
+    gpa = ""
+    for line in edu_lines:
+        lower = line.lower()
+        if "bachelor" in lower:
+            degree, institution = split_title_and_area(line)
+        elif lower.startswith("gpa:"):
+            gpa = line.split(":", 1)[1].strip()
+    if degree or institution:
+        education.append({
+            "institution": institution or "Sabancı University",
+            "area": degree,
+            "studyType": "Bachelor's Degree",
+            "startDate": "",
+            "endDate": "2025",
+            "score": gpa,
+        })
+
+    skills = []
+    for item in infer_skills(profile, tailored):
+        skills.append({"name": item, "level": "", "keywords": []})
+
+    projects = []
+    for item in infer_work_entries(profile, tailored):
+        if item["name"] == "Academic and Project Work":
+            projects.append({
+                "name": item["position"],
+                "description": item["summary"],
+                "highlights": item["highlights"],
+                "keywords": [],
+            })
+
+    languages = infer_languages(profile)
+
+    return {
+        "$schema": "https://raw.githubusercontent.com/jsonresume/resume-schema/v1.0.0/schema.json",
+        "basics": basics,
+        "work": work,
+        "education": education,
+        "skills": skills,
+        "languages": languages,
+        "projects": projects,
+        "meta": {
+            "tailoring": {
+                "matchScore": tailored.get("match_score", {}).get("score"),
+                "matchedKeywords": tailored.get("match_score", {}).get("matched_keywords", []),
+                "missingKeywords": tailored.get("match_score", {}).get("missing_keywords", []),
+            }
+        },
+    }
+
+
+def build_preview_text(json_resume):
+    lines = [
+        json_resume["basics"].get("name", ""),
+        json_resume["basics"].get("label", ""),
+        "",
+        "SUMMARY",
+        json_resume["basics"].get("summary", ""),
+        "",
+        "EXPERIENCE",
+    ]
+    for work in json_resume.get("work", []):
+        lines.append(f"{work.get('name', '')} — {work.get('position', '')}")
+        for bullet in work.get("highlights", []):
+            lines.append(f"• {bullet}")
         lines.append("")
+    lines.append("SKILLS")
+    for skill in json_resume.get("skills", [])[:16]:
+        lines.append(f"• {skill.get('name', '')}")
     return "\n".join(lines).strip()
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Convert profile + tailored CV output into JSON Resume.")
     parser.add_argument("candidate_profile")
-    parser.add_argument("job_description")
+    parser.add_argument("--tailored-cv", required=True, help="Path to cv-tailoring-skill JSON output")
     parser.add_argument("--out", default="resume_builder_output.json")
     args = parser.parse_args()
 
     profile_text = Path(args.candidate_profile).read_text(encoding="utf-8")
-    job_text = Path(args.job_description).read_text(encoding="utf-8")
+    tailored = json.loads(Path(args.tailored_cv).read_text(encoding="utf-8"))
     profile = parse_candidate_profile(profile_text)
-    job_signals = extract_job_signals(job_text)
-
-    headline = "Junior Backend / Full-Stack Software Engineer"
-    summary = build_summary(profile, job_signals)
-    experience = build_experience(profile, job_signals)
-    full_cv = build_full_cv(profile, job_signals, summary, experience)
-    gap_analysis = build_gap_analysis(profile, job_signals)
+    json_resume = build_json_resume(profile, tailored)
 
     result = {
-        "structured_resume": {
-            "target_role": job_signals["role"],
-            "headline": headline,
-            "summary": summary,
-            "experience": experience,
-            "education": collect_section_items(profile, "education"),
-            "skills": build_skills(profile, job_signals),
-            "full_cv": full_cv,
-            "gap_analysis": gap_analysis,
+        "json_resume": json_resume,
+        "preview_text": build_preview_text(json_resume),
+        "source_bridge": {
+            "profilePath": str(Path(args.candidate_profile).resolve()),
+            "tailoredCvPath": str(Path(args.tailored_cv).resolve()),
         },
-        "polished_resume": build_polished_text(profile, headline, summary, full_cv),
     }
 
     Path(args.out).write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
