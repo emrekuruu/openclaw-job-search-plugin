@@ -18,9 +18,8 @@ Notes:
 
 - The workflow runs on pushes to `main`.
 - It creates a release commit and a git tag like `v1.2.3`.
-- It publishes to npm using `NPM_TOKEN`.
+- It publishes to clawhub using `CLAWHUB`.
 - Commits created by the workflow include `[skip ci]` to avoid loops.
 
 Required GitHub secret:
-
-- `NPM_TOKEN` - npm token allowed to publish this package
+- `CLAWHUB_TOKEN` - clawhub token allowed to publish this package
