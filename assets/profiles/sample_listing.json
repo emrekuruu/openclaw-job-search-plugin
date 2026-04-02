@@ -1,0 +1,35 @@
+{
+  "title": "Back-End Developer",
+  "company": "Kassavirtanen Oy",
+  "location": "Istanbul, Istanbul, T\u00fcrkiye",
+  "workMode": "remote",
+  "source": "linkedin",
+  "url": "https://www.linkedin.com/jobs/view/4389213150",
+  "postedDate": "2026-03-23T00:00:00.000",
+  "salary": null,
+  "summary": "**Location:** \n Remote (Relocation to Nordic countries might happen in the future, depending on requirements.)\n   \n\n  \n\n**Experience: Minimum 3 years in Back\\-End Development.**\n**Role Overview**\n We are looking for an experienced\n **Back\\-End Developer** \n who can build reliable and scalable systems, work across multiple projects, and deliver high\u00e2\u0080\u0091quality backend solutions. Familiarity with\n **C\\#, SQL, Az** \n ure, or related technologies is expected, and a positive, can\u00e2\u0080\u0091do attitude is essential.\n   \n\n  \n\n**About The Company**\n We are a growing IT organization operating in the Nordic market (Finland \\& Sweden). We work on multiple in\u00e2\u0080\u0091house products and selected client projects. Our culture is open, friendly, low\u00e2\u0080\u0091hierarchy, and encourages innovation and independent decision\u00e2\u0080\u0091making.\n   \n\n  \n\n**Key Responsibilities / Duties**\n Develop and maintain back\\-end services and system components\n   \n\n  \n\n Collaborate with front\\-end, QA, and product teams\n   \n\n  \n\n Ensure performance, security, and reliability of applications\n   \n\n  \n\n Work across multiple product lines and contribute innovative ideas\n   \n\n  \n\n Understand system requirements and convert them into technical solutions\n   \n\n  \n\n Write clean, efficient, and maintainable code\n   \n\n  \n\n**Required Skills \\& Experience**\n Minimum\n **3 years of hands\\-on experience in back\\-end development.**\n**Strong knowledge of C\\# .NET, SQL, and Azure.**\n Familiarity with React / React Native is a plus.\n   \n\n  \n\n Strong logical thinking and problem\\-solving skills.\n   \n\n  \n\n Ability to build secure, scalable, and high\\-performing services.\n   \n\n  \n\n Positive attitude with a strong can\u00e2\u0080\u0091do mindset\n   \n\n  \n\n Good understanding of development best practices.\n   \n\n  \n\n**What We Offer**\n Opportunity to work with a skilled and supportive team.\n   \n\n  \n\n Open, friendly, and low\u00e2\u0080\u0091hierarchy work culture.\n   \n\n  \n\n Remote work flexibility.\n   \n\n  \n\n Exposure to multiple product\\-based projects.\n   \n\n  \n\n**Application Instructions.**\n Please send your updated CV in English.\n   \n\n  \n\n The position will be filled once the right candidate is identified.",
+  "query": "Junior Backend Engineer",
+  "reasoning": "Direct match for backend-oriented junior roles.",
+  "filters": {
+    "location": "Istanbul, Turkey",
+    "site_name": [
+      "linkedin"
+    ],
+    "results_wanted": 25,
+    "hours_old": 720,
+    "job_type": "fulltime",
+    "is_remote": false,
+    "easy_apply": false,
+    "linkedin_fetch_description": true,
+    "country_indeed": "turkey",
+    "distance": 50
+  },
+  "filterReasoning": {
+    "location": "Prefer Istanbul-based backend roles.",
+    "job_type": "Default to full-time.",
+    "hours_old": "Prefer roles from the last 30 days.",
+    "country_indeed": "Turkey-based opportunities."
+  },
+  "runId": "2026-03-29-154600-sample-software-engineer-profile",
+  "id": "2026-03-29-154600-sample-software-engineer-profile-kassavirtanen-oy-back-end-developer-a1a18cc4f6"
+}

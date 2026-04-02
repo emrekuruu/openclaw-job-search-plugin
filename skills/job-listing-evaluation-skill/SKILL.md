@@ -26,6 +26,13 @@ Write one JSON file per evaluated listing under the plugin's OpenClaw state stor
 Optional failure artifact:
 - `<OPENCLAW_STATE_DIR>/plugin-runtimes/job-search/evaluations/<runId>/<listingId>.error.json`
 
+## Script
+
+Use:
+- `scripts/write_evaluation.py`
+
+This script writes one evaluation artifact deterministically once the evaluator has decided the payload.
+
 ## Required output schema
 
 `dimensions` are required, not optional.

@@ -1,7 +1,13 @@
 {
   "id": "job-search",
   "name": "Job Search",
-  "description": "Concurrent job search workflow plugin with retrieval, evaluator fanout, export, and JSON Resume rendering.",
+  "description": "Skill-first job-search package. The plugin entrypoint is intentionally minimal; workflow capabilities live under bundled skills, scripts, and references.",
+  "skills": [
+    "skills/environment-check",
+    "skills/job-search-skill",
+    "skills/job-listing-evaluation-skill",
+    "skills/job-resume-generation-skill"
+  ],
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

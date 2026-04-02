@@ -5,7 +5,7 @@ description: Thin resume-generation skill for the job-search plugin workflow. Us
 
 # Job Resume Generation Skill
 
-This skill owns the content-generation guidance for the third step in the workflow.
+This skill owns the resume-generation and PDF-render workflow for the later stage of the job-search pipeline.
 
 ## Workflow position
 
@@ -14,9 +14,9 @@ Use this after:
 2. evaluate
 3. select a `keep` or `maybe` listing
 4. generate a tailored JSON Resume from the profile plus listing description
-5. let the plugin render the generated JSON Resume files through the CLI
+5. render the generated resume to PDF
 
-The deterministic search, evaluation, storage, validation, and rendering mechanics belong to the plugin. This skill owns the judgment and writing guidance for converting a candidate profile plus one listing description into a truthful, moderately tailored JSON Resume.
+This skill owns the judgment and writing guidance for converting a candidate profile plus one listing description into a truthful, moderately tailored JSON Resume, and then getting that resume rendered to PDF through the thin helper layer.
 
 ## Inputs
 
@@ -167,9 +167,12 @@ If the outer workflow does not provide a path, still produce the JSON Resume obj
 
 ## Rendering contract
 
-The plugin will handle deterministic validation and rendering via CLI tooling.
+After writing the JSON Resume artifact, render it to PDF.
 
-The agent should not own HTML/PDF rendering logic when the plugin tool is available.
+Preferred approach:
+- use `scripts/render_resume.py` for deterministic PDF rendering
+- treat PDF as the required deliverable
+- do not prioritize HTML output unless some future workflow explicitly asks for it
 
 ## Quality checks
 
@@ -182,7 +185,13 @@ Before returning the result, verify:
 - weak or irrelevant material is trimmed
 - work highlights are specific and not generic filler
 - the JSON structure is internally consistent and ready for validation
+- the final output is ready to be rendered to PDF
 
 ## References
 
 Read `skills/job-resume-generation-skill/references/json-resume-notes.md` when you need the JSON Resume section conventions, rendering assumptions, or field-mapping reminders.
+
+## Script
+
+Use:
+- `scripts/render_resume.py`
