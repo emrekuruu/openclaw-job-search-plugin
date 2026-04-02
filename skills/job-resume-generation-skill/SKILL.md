@@ -5,7 +5,7 @@ description: Thin resume-generation skill for the job-search plugin workflow. Us
 
 # Job Resume Generation Skill
 
-This skill owns the content-generation guidance for the third step in the workflow.
+This skill owns the bridge from text-first CV tailoring into final JSON Resume generation for the third step in the workflow.
 
 ## Workflow position
 
@@ -16,7 +16,7 @@ Use this after:
 4. generate a tailored JSON Resume from the profile plus listing description
 5. let the plugin render the generated JSON Resume files through the CLI
 
-The deterministic search, evaluation, storage, validation, and rendering mechanics belong to the plugin. This skill owns the judgment and writing guidance for converting a candidate profile plus one listing description into a truthful, moderately tailored JSON Resume.
+The deterministic search, evaluation, storage, validation, and rendering mechanics belong to the plugin. This skill assumes the tailoring layer already produced a truthful text-first CV draft, then converts that grounded material plus the base profile into a moderately tailored JSON Resume.
 
 ## Inputs
 
