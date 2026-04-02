@@ -11,14 +11,19 @@ permissions:
 
 jobs:
   release:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+
+    if: >
+      github.actor != 'github-actions[bot]' &&
+      !contains(github.event.head_commit.message, '[skip ci]') &&
+      !startsWith(github.event.head_commit.message, 'chore: release v')
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: main
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -30,22 +35,22 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      - name: Install dependencies
+        run: npm ci
+
       - name: Decide version bump from commit message
         id: bump
         shell: bash
         run: |
           COMMIT_MSG="$(git log -1 --pretty=%B)"
-          echo "commit_message<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$COMMIT_MSG" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "Latest commit message:"
+          echo "$COMMIT_MSG"
 
           shopt -s nocasematch
-          if [[ "$COMMIT_MSG" =~ BREAKING\ CHANGE ]] || [[ "$COMMIT_MSG" =~ ^[a-z]+![:\(] ]]; then
+          if [[ "$COMMIT_MSG" =~ BREAKING[[:space:]]CHANGE ]] || [[ "$COMMIT_MSG" =~ ^[a-z]+![:\(] ]]; then
             BUMP=major
           elif [[ "$COMMIT_MSG" =~ ^feat(\(.+\))?: ]]; then
             BUMP=minor
-          elif [[ "$COMMIT_MSG" =~ ^fix(\(.+\))?: ]]; then
-            BUMP=patch
           else
             BUMP=patch
           fi
@@ -54,20 +59,40 @@ jobs:
           echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
           echo "Selected bump: $BUMP"
 
-      - name: Bump package version
+      - name: Bump version
         id: version
         shell: bash
         run: |
-          NEW_VERSION=$(npm version ${{ steps.bump.outputs.bump }} --no-git-tag-version)
-          NEW_VERSION=${NEW_VERSION#v}
+          NEW_VERSION="$(npm version "${{ steps.bump.outputs.bump }}" --no-git-tag-version)"
+          NEW_VERSION="${NEW_VERSION#v}"
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "New version: $NEW_VERSION"
 
-      - name: Install dependencies
-        run: npm install
-
       - name: Verify package tarball
         run: npm pack --dry-run
+
+      - name: Commit version bump
+        shell: bash
+        run: |
+          git add package.json package-lock.json
+          git commit -m "chore: release v${{ steps.version.outputs.version }} [skip ci]"
+
+      - name: Create release tag
+        shell: bash
+        run: |
+          git tag "v${{ steps.version.outputs.version }}"
+
+      - name: Push release commit and tag
+        shell: bash
+        run: |
+          git push origin main
+          git push origin "v${{ steps.version.outputs.version }}"
+
+      - name: Capture release commit SHA
+        id: release_sha
+        shell: bash
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Install ClawHub CLI
         run: npm install -g clawhub
@@ -81,18 +106,5 @@ jobs:
         run: |
           clawhub package publish . \
             --source-repo https://github.com/emrekuruu/openclaw-job-search-plugin \
-            --source-commit "$GITHUB_SHA" \
-            --source-ref "$GITHUB_REF_NAME"
-
-      - name: Commit version bump
-        shell: bash
-        run: |
-          git add package.json package-lock.json
-          git commit -m "chore: release v${{ steps.version.outputs.version }} [skip ci]"
-
-      - name: Create and push tag
-        shell: bash
-        run: |
-          git tag "v${{ steps.version.outputs.version }}"
-          git push origin main
-          git push origin "v${{ steps.version.outputs.version }}"
+            --source-commit "${{ steps.release_sha.outputs.sha }}" \
+            --source-ref "v${{ steps.version.outputs.version }}"
