@@ -25,6 +25,9 @@ jobs:
           fetch-depth: 0
           ref: main
 
+      - name: Fetch all tags
+        run: git fetch --tags --force
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -59,14 +62,25 @@ jobs:
           echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
           echo "Selected bump: $BUMP"
 
-      - name: Bump version
+      - name: Compute next version safely
         id: version
         shell: bash
         run: |
-          NEW_VERSION="$(npm version "${{ steps.bump.outputs.bump }}" --no-git-tag-version)"
-          NEW_VERSION="${NEW_VERSION#v}"
+          CURRENT_VERSION="$(node -p "require('./package.json').version")"
+          echo "package.json version before bump: $CURRENT_VERSION"
+
+          npm version "${{ steps.bump.outputs.bump }}" --no-git-tag-version
+          NEW_VERSION="$(node -p "require('./package.json').version")"
+
+          echo "Proposed new version: $NEW_VERSION"
+
+          if git rev-parse "v$NEW_VERSION" >/dev/null 2>&1; then
+            echo "Error: tag v$NEW_VERSION already exists."
+            echo "Your package.json / tags / prior releases are out of sync."
+            exit 1
+          fi
+
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "New version: $NEW_VERSION"
 
       - name: Verify package tarball
         run: npm pack --dry-run
@@ -85,7 +99,7 @@ jobs:
       - name: Push release commit and tag
         shell: bash
         run: |
-          git push origin main
+          git push origin HEAD:main
           git push origin "v${{ steps.version.outputs.version }}"
 
       - name: Capture release commit SHA
