@@ -5,3 +5,12 @@ __pycache__/
 .DS_Store
 .vscode/
 *.tgz
+
+# Local OpenClaw workspace files
+.openclaw/
+AGENTS.md
+HEARTBEAT.md
+IDENTITY.md
+SOUL.md
+TOOLS.md
+USER.md
