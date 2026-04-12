@@ -1,0 +1,203 @@
+{
+  "source_cv": {
+    "type": "pdf",
+    "path": "Tahsin Mert Ulu CV son.pdf",
+    "preserved_schema": [
+      "Skills",
+      "Experience",
+      "Education",
+      "Projects",
+      "Volunteer Work",
+      "Activities"
+    ],
+    "preservation_mode": "non-destructive"
+  },
+  "target_job": {
+    "company": "Fugo",
+    "role": "Game Developer",
+    "focus": [
+      "Unity",
+      "C#",
+      "object-oriented programming",
+      "debugging",
+      "problem-solving",
+      "Unity editor tools",
+      "mobile game experiences",
+      "creative collaboration"
+    ]
+  },
+  "edit_rules_applied": {
+    "kept_sections_unchanged": [
+      "Volunteer Work",
+      "Activities"
+    ],
+    "projects_strategy": "replace least relevant projects with true game-development projects from provided game-dev context",
+    "experience_strategy": "paraphrase existing experience bullets for clarity and keyword alignment without changing facts",
+    "skills_strategy": "preserve existing skills structure and enrich with truthfully supported game-development keywords"
+  },
+  "cv": {
+    "header": {
+      "name": "Tahsin Mert Ulu",
+      "contact_line": "LinkedIn | +905076013281 | ulu@sabanciuniv.edu"
+    },
+    "skills": [
+      "C#",
+      "Python",
+      "Java",
+      "JavaScript",
+      "SQL",
+      "C++",
+      "Django",
+      "React",
+      "MongoDB",
+      "Android Studio",
+      "Jira",
+      "Bitbucket",
+      "Atlassian",
+      "Artificial Intelligence",
+      "Unit Testing",
+      "Frontend",
+      "Backend",
+      "Data Analysis",
+      "Scrum",
+      "Full-Stack",
+      "Git",
+      "ML",
+      "Turkish (Native)",
+      "English (Advanced)",
+      "German (Beginner)",
+      "Unity",
+      "Object-Oriented Programming",
+      "Debugging",
+      "Problem Solving",
+      "Gameplay Systems",
+      "Grid-Based Mechanics",
+      "Level System Design",
+      "Procedural Level Generation",
+      "Animation Integration",
+      "Unity Editor Tools"
+    ],
+    "experience": [
+      {
+        "title": "Software Development Intern",
+        "company": "Yapı Kredi Teknoloji",
+        "location": "Istanbul, Turkey",
+        "dates": "02/2025 - 01/2026",
+        "bullets": [
+          "Developed software for a full-stack banking application used by internal teams, with emphasis on efficiency and secure workflows.",
+          "Implemented React-based frontend flows and supported backend integration to improve internal banking operations.",
+          "Developed backend and BFF layers with Java and Spring Boot, and managed PostgreSQL-based data access."
+        ]
+      },
+      {
+        "title": "Software Development Intern",
+        "company": "Asis Elektronik ve Bilişim Sistemleri",
+        "location": "Istanbul, Turkey",
+        "dates": "02/2024 - 04/2024",
+        "bullets": [
+          "Developed a mobile application for real-time bus tracking and card balance inquiry.",
+          "Integrated the TFE Open Data API to provide real-time route information.",
+          "Applied MVVM architecture to support maintainability, debugging, and code efficiency."
+        ]
+      }
+    ],
+    "education": [
+      {
+        "degree": "Bachelor’s Degree",
+        "school": "Sabancı University",
+        "location": "Istanbul, Turkey",
+        "dates": "09/2020 - 06/2025",
+        "details": [
+          "Major in Computer Science and Engineering  GPA:3.01",
+          "Minor in Decision and Behavior"
+        ]
+      },
+      {
+        "degree": "One Term Exchange Program",
+        "school": "Technische Universitat Hamburg",
+        "location": "Istanbul, Turkey",
+        "dates": "03/2024 - 09/2024",
+        "details": []
+      },
+      {
+        "degree": "Highschool Diploma",
+        "school": "Adana Gündoğdu College Science High School",
+        "location": "Adana, Turkey",
+        "dates": "09/2016 - 06/2020",
+        "details": []
+      }
+    ],
+    "projects": [
+      {
+        "name": "Unity Puzzle Game Prototype",
+        "context": "Game Development Project",
+        "dates": "09/2024 - 01/2025",
+        "bullets": [
+          "Developed a casual puzzle-game prototype in Unity with C#, focusing on interactive gameplay systems.",
+          "Designed a grid-based mechanic for object interaction and reusable level structures.",
+          "Implemented animation-supported gameplay feedback and logic for responsive player interaction."
+        ],
+        "replaces": "E-Commerce Website for Bag Sales"
+      },
+      {
+        "name": "Procedural Level System for Puzzle Gameplay",
+        "context": "Game Systems Project",
+        "dates": "09/2024 - 06/2025",
+        "bullets": [
+          "Built systems capable of dynamically generating levels for replayable puzzle experiences.",
+          "Designed level logic with a focus on maintainable game architecture and reusable components.",
+          "Strengthened object-oriented problem-solving through gameplay-system implementation in Unity."
+        ],
+        "replaces": "A Decision Support System for Route Optimization of Last-Mile and Last-Yard Deliveries"
+      },
+      {
+        "name": "Mobile Transportation Tracking Application",
+        "context": "Android Studio",
+        "dates": "02/2024 - 04/2024",
+        "bullets": [
+          "Developed a mobile app for real time bus tracking and card balance inquiry during my internship at Asis Elektronik ve Bilişim Sistemleri A.Ş.",
+          "Integrated the TFE Open Data API to provide users with live bus locations and route information.",
+          "Followed MVVM architecture to ensure clean, maintainable, and scalable code."
+        ],
+        "replaces": null
+      },
+      {
+        "name": "Word Puzzle Game Prototype",
+        "context": "Unity / C#",
+        "dates": "09/2023 - 01/2024",
+        "bullets": [
+          "Developed a word puzzle game prototype inspired by Words of Wonders-style mechanics.",
+          "Implemented letter selection, word validation, and progression-oriented gameplay logic.",
+          "Focused on recreating interaction patterns and core gameplay systems through reverse-engineering."
+        ],
+        "replaces": "Java Mobile Application Development Project"
+      },
+      {
+        "name": "Match-Style Game Prototype",
+        "context": "Unity / C#",
+        "dates": "09/2023 - 01/2024",
+        "bullets": [
+          "Built a match-style casual game prototype inspired by Candy Crush-like grid interactions.",
+          "Implemented tile-matching mechanics, gameplay loops, and state management.",
+          "Explored mobile puzzle-game design patterns through rapid prototyping in Unity."
+        ],
+        "replaces": "Data Science Term Project"
+      }
+    ],
+    "volunteer_work": [
+      {
+        "title": "Civic Involvement Projects",
+        "dates": "February - June 2021",
+        "bullets": [
+          "Produced a podcast series on the Mucilage problem affecting semi-enclosed seas such as Marmara Sea."
+        ]
+      }
+    ],
+    "activities": [
+      "Member, SUGastro (Sabanci University Gastronomy club) 2021 - 2024",
+      "Karate 2009 - 2013",
+      "Basketball, Adana Gündoğdu College Basketball Team player 2011 - 2013",
+      "Tennis, Adana Tennis Dağcılık Sport Club 2013 - 2017"
+    ]
+  }
+}
