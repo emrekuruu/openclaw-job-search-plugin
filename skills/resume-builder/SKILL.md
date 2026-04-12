@@ -67,6 +67,38 @@ Key requirements:
 - Colors use `rgba(r, g, b, a)` format
 - Fonts must be available on Google Fonts
 
+## Local Skill Assets
+
+Keep reusable CV tailoring inputs inside this skill:
+
+- base profiles: `skills/resume-builder/assets/profiles/<candidate>/profile.md`
+- role-specific contexts: `skills/resume-builder/assets/contexts/<candidate>/`
+- saved job descriptions: `skills/resume-builder/assets/jobs/<candidate>/`
+- generated outputs: `skills/resume-builder/assets/outputs/<candidate>/`
+
+When working from repository files rather than direct user input, prefer these local skill paths over any repo-level runtime folder.
+
+## Existing CV Preservation Mode
+
+When the user provides an existing CV file and asks to keep the same style, layout, or schema:
+
+- treat the existing CV as the layout source of truth
+- preserve the section set and overall shape unless the user explicitly asks for restructuring
+- keep stable sections such as volunteer work, activities, certifications, and similar personal-history sections unchanged by default
+- prefer targeted edits over broad rewrites
+- in project sections, replace only the least relevant projects when the user provides more relevant true projects for the target role
+- in experience sections, paraphrase bullet wording to align with target-role keywords only when the underlying facts stay unchanged
+- do not invent new employers, dates, shipped products, analytics ownership, ad-tech ownership, or production responsibilities
+- if the source CV is a PDF, extract the current section order and bullet style first, then mirror that structure in the tailored output
+- when asked for ATS-friendly output, keep the same section schema while normalizing wording, clarity, and keyword placement
+
+For game-development tailoring specifically:
+
+- preserve the existing CV schema from the source CV
+- keep Volunteer Work and Activities fixed unless the user says otherwise
+- keep Experience entries but allow keyword-aware paraphrasing for Unity, C#, gameplay systems, debugging, object-oriented programming, collaboration, and mobile games when those are truthfully supported
+- prefer adding or swapping game-development projects in the Projects section over rewriting unrelated sections
+
 ## Resume Writing Tips
 
 Share these tips when helping users craft their resume content:
