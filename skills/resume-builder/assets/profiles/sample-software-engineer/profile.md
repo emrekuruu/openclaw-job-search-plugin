@@ -7,8 +7,8 @@
 - Work authorization: Turkey
 - Contact:
   - LinkedIn available
-  - Phone: +90 507 601 32 81
-  - Email: ulu@sabanciuniv.edu
+  - Phone: [redacted]
+  - Email: [redacted]
 
 ## Target Direction
 - Desired roles:

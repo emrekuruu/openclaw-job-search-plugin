@@ -1,5 +1,5 @@
 Tahsin Mert Ulu
-LinkedIn | +905076013281 | ulu@sabanciuniv.edu
+LinkedIn | [redacted phone] | [redacted email]
 
 Skills ____________________________________________________________________________________________
 
